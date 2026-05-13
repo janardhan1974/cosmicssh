@@ -1,0 +1,29 @@
+* { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: #0f0f10;
+  color: #e8e6e3;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  padding: 32px;
+}
+
+.app h1 {
+  margin: 0 0 8px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.muted {
+  color: #8a8780;
+}
