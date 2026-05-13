@@ -89,3 +89,62 @@ dist/
 - @types/node `^20.14.0` (matches Electron 30's bundled Node 20)
 
 149 total packages.
+
+---
+
+## M1 — one working SSH session
+
+### Sandboxed preload + `require()` limits (the big gotcha)
+
+With `webPreferences.sandbox: true`, the preload script can ONLY `require`:
+- Electron's own modules (`electron`, etc.)
+- A tiny set of Node built-ins: `events`, `timers`, `url`
+
+It CANNOT `require()`:
+- Third-party npm packages (`zod`, `ssh2`, …) — obvious
+- **Relative project files** (`require('../shared/types')`) — non-obvious
+
+Lost ~30 minutes of debugging here. Sequence was:
+1. First attempt — preload imported `shared/types.ts`, which imported `zod`. Compiled preload ended up with `require("zod")`. Sandboxed preload threw at load time → `contextBridge.exposeInMainWorld('api', api)` never ran → `window.api` was `undefined` in the renderer → "Cannot read properties of undefined (reading 'ssh')".
+2. Second attempt — moved zod schemas into `src/main/ipc-schemas.ts` (main-only), shrunk `shared/types.ts` to types + channel string constants. Compiled preload still did `require("../shared/types")`. SAME error: relative require fails in sandbox.
+3. **Fix that worked**: inline the channel string constants directly into the preload so it has zero relative requires. Only `require("electron")`. `Api` type stays a `type`-only import (erased at compile time).
+
+The channel strings are duplicated between `src/preload/index.ts` and `src/shared/types.ts` as a result. Comment on both files flags this; if the duplication ever drifts the IPC will silently miss. A follow-up worth doing later: bundle the preload (esbuild) so it can be a single file with inlined imports. For now, hand-sync is fine — there are 7 strings.
+
+### `preload-error` listener
+
+Sandboxed preload errors don't print to stderr by default — they just silently break the renderer. `src/main/index.ts` now subscribes:
+
+```ts
+win.webContents.on('preload-error', (_e, preloadPath, err) => {
+  console.error(`[preload-error] ${preloadPath}: ${err.message}\n${err.stack ?? ''}`)
+})
+```
+
+Anyone touching the preload should grep for this when debugging future "window.api undefined" mysteries.
+
+### xterm v6 dropped `windowsMode`
+
+The plan says "xterm.js needs `windowsMode: false`". xterm v6 (current) removed that option entirely. The v6 replacement is `windowsPty`, which is for connecting xterm to a LOCAL Windows ConPTY — something we never do (every PTY in this app is a remote Linux shell over SSH). Default (both options unset) is the correct equivalent of the plan's intent.
+
+### Host key verification — DEFERRED to M2
+
+`SshSessionManager.connect()` currently uses a `hostVerifier` callback that returns `true` for any key and logs a `console.warn`. Plan.md M2 implements proper `known_hosts`-style prompting with fingerprint comparison; plan.md security non-negotiables say "Host key verification is mandatory — no 'skip verification' toggle". **The current M1 code is dev-only and MUST be replaced before any non-localhost target gets shipped to.** M2 is the very next milestone, so this is a transient state.
+
+### ssh2 native modules — not rebuilt for Electron
+
+ssh2 has optional native deps (`cpu-features`, `sshcrypto.node`) for hardware-accelerated AES. Building them against Electron's Node ABI requires `@electron/rebuild` — added complexity not needed yet. ssh2 falls back to pure-JS crypto without them; performance is fine for interactive shell traffic. Will revisit when M6 SFTP transfers expose throughput issues, or before M10 packaging.
+
+### IPC contract
+
+| Channel | Direction | Schema (validated in main) | Payload |
+|---|---|---|---|
+| `ssh:connect` | renderer → main (invoke) | `ConnectPayloadSchema` | `{ host, port, username, password }` → `{ sessionId }` |
+| `ssh:write` | renderer → main (invoke) | `WritePayloadSchema` | `{ sessionId, data }` |
+| `ssh:resize` | renderer → main (invoke) | `ResizePayloadSchema` | `{ sessionId, cols, rows }` |
+| `ssh:disconnect` | renderer → main (invoke) | `DisconnectPayloadSchema` | `{ sessionId }` |
+| `ssh:data` | main → renderer (event) | – | `{ sessionId, data }` |
+| `ssh:close` | main → renderer (event) | – | `{ sessionId, code, signal }` |
+| `ssh:error` | main → renderer (event) | – | `{ sessionId, message }` |
+
+Events are broadcast to all windows; the TerminalView filters by `sessionId`. Fine for M1 (single window, single session) but will need targeted `webContents.send(specificWin, …)` when M4 introduces tabs/splits.

@@ -1,9 +1,31 @@
+import { useState } from 'react'
+import { ConnectForm } from './components/ConnectForm'
+import { TerminalView } from './components/TerminalView'
+
+type Session = {
+  sessionId: string
+  host: string
+  username: string
+}
+
 export function App() {
+  const [session, setSession] = useState<Session | null>(null)
+
+  if (!session) {
+    return (
+      <ConnectForm
+        onConnected={(result, meta) =>
+          setSession({ sessionId: result.sessionId, ...meta })
+        }
+      />
+    )
+  }
+
   return (
-    <main className="app">
-      <h1>TermBox</h1>
-      <p>M0 scaffold — Electron + Vite + React + TS.</p>
-      <p className="muted">Hello.</p>
-    </main>
+    <TerminalView
+      sessionId={session.sessionId}
+      meta={{ host: session.host, username: session.username }}
+      onDisconnect={() => setSession(null)}
+    />
   )
 }
