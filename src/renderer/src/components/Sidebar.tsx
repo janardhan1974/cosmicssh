@@ -40,6 +40,9 @@ function SidebarImpl({ onConnect, onEdit, onNewProfile, onOpenSettings }: Props)
   // Modal for "New folder" — window.prompt() is silently disabled by
   // Electron, so we render our own input prompt.
   const [newFolderOpen, setNewFolderOpen] = useState(false)
+  // Folder currently under a drag (for the highlight ring). null when not
+  // dragging or hovering open whitespace.
+  const [dragOverGroup, setDragOverGroup] = useState<string | null>(null)
 
   useEffect(() => {
     if (!loaded) void load()
@@ -151,6 +154,25 @@ function SidebarImpl({ onConnect, onEdit, onNewProfile, onOpenSettings }: Props)
 
   const grouped = groupProfiles(profiles, extraFolders)
 
+  // Drag-and-drop: move a profile into another folder. We use a custom MIME
+  // so we never accept drags from outside the app (file drops, text, etc.).
+  // dataTransfer payload is the profile id; resolved via the live `profiles`
+  // array at drop time so we don't carry stale snapshots through the drag.
+  const DRAG_MIME = 'application/x-cosmicssh-profile'
+  const isProfileDrag = (e: React.DragEvent): boolean =>
+    Array.from(e.dataTransfer.types).includes(DRAG_MIME)
+
+  const handleProfileDrop = async (targetGroup: string, draggedId: string) => {
+    const target = profiles.find((p) => p.id === draggedId)
+    if (!target) return
+    const currentGroup = target.group ?? ''
+    if (currentGroup === targetGroup) return // dropped on its own folder — no-op
+    await updateProfile({
+      ...target,
+      group: targetGroup === '' ? undefined : targetGroup,
+    })
+  }
+
   const handleNewFolder = () => {
     setNewFolderOpen(true)
   }
@@ -236,7 +258,35 @@ function SidebarImpl({ onConnect, onEdit, onNewProfile, onOpenSettings }: Props)
           const groupKey = group || '__ungrouped__'
           const isCollapsed = collapsed.has(groupKey)
           return (
-            <div key={groupKey} className="group">
+            <div
+              key={groupKey}
+              className={`group${dragOverGroup === group ? ' drop-target' : ''}`}
+              onDragOver={(e) => {
+                if (!isProfileDrag(e)) return
+                // Without preventDefault the browser refuses the drop.
+                e.preventDefault()
+                e.dataTransfer.dropEffect = 'move'
+              }}
+              onDragEnter={(e) => {
+                if (!isProfileDrag(e)) return
+                setDragOverGroup(group)
+              }}
+              onDragLeave={(e) => {
+                // Only clear when we've actually left the group container —
+                // moving between the header and a child row fires dragleave
+                // even though we're still over the same group.
+                const next = e.relatedTarget as Node | null
+                if (next && e.currentTarget.contains(next)) return
+                setDragOverGroup((g) => (g === group ? null : g))
+              }}
+              onDrop={(e) => {
+                if (!isProfileDrag(e)) return
+                e.preventDefault()
+                setDragOverGroup(null)
+                const id = e.dataTransfer.getData(DRAG_MIME)
+                if (id) void handleProfileDrop(group, id)
+              }}
+            >
               {renaming?.kind === 'group' && renaming.key === group ? (
                 // Rename mode: plain div, no button. Nesting <input> inside
                 // <button> is invalid HTML and Chromium steals focus back to
@@ -316,6 +366,11 @@ function SidebarImpl({ onConnect, onEdit, onNewProfile, onOpenSettings }: Props)
                         <button
                           type="button"
                           className="profile-row"
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData(DRAG_MIME, profile.id)
+                            e.dataTransfer.effectAllowed = 'move'
+                          }}
                           onClick={() => onConnect(profile)}
                           onContextMenu={(e) => {
                             e.preventDefault()

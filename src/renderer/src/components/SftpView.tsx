@@ -24,6 +24,10 @@ type PromptRequest = {
 type Props = {
   sessionId: string
   isActive: boolean
+  // Called when the user clicks Reconnect on a disconnected SFTP pane.
+  // Owner (App.tsx) re-opens the underlying SSH session and replaces this
+  // tab's sessionId in place.
+  onReconnect: () => void
 }
 
 const SPLITTER_DEFAULT_PCT = 50
@@ -45,7 +49,7 @@ function joinRemote(dir: string, name: string): string {
   return dir + SEP_REMOTE + name
 }
 
-export function SftpView({ sessionId, isActive }: Props) {
+export function SftpView({ sessionId, isActive, onReconnect }: Props) {
   const [splitPct, setSplitPct] = useState<number>(SPLITTER_DEFAULT_PCT)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const localRef = useRef<SftpPaneHandle | null>(null)
@@ -374,6 +378,7 @@ export function SftpView({ sessionId, isActive }: Props) {
         sessionId={sessionId}
         onAction={handleLocalAction}
         onDrop={handleDropOnLocal}
+        onReconnect={onReconnect}
       />
       <div className="sftp-splitter" onMouseDown={startResize} title="Drag to resize" />
       <SftpPane
@@ -382,6 +387,7 @@ export function SftpView({ sessionId, isActive }: Props) {
         sessionId={sessionId}
         onAction={handleRemoteAction}
         onDrop={handleDropOnRemote}
+        onReconnect={onReconnect}
       />
       {error && (
         <div

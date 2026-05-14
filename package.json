@@ -2,14 +2,16 @@
   "name": "cosmicssh",
   "version": "0.0.1",
   "private": true,
-  "description": "Personal SSH/SFTP client for Windows.",
+  "description": "Personal SSH/SFTP client for Windows and Linux.",
+  "homepage": "https://github.com/janardhan1974/mobajana",
   "author": {
-    "name": "Shriram Jana",
-    "email": "shriram.j.iyengar@gmail.com"
+    "name": "Janardhan Srinivasan",
+    "email": "Janardhan.Srinivasan@gmail.com"
   },
   "main": "dist/main/index.js",
   "scripts": {
     "dev": "node scripts/dev.mjs",
+    "prebuild": "node scripts/write-build-info.mjs",
     "build": "npm run build:main && npm run build:preload && npm run build:renderer",
     "build:main": "tsc -p tsconfig.main.json",
     "build:preload": "tsc -p tsconfig.preload.json",
@@ -18,7 +20,8 @@
     "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.preload.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
     "dist": "npm run build && electron-builder --win",
     "dist:installer": "npm run build && electron-builder --win nsis",
-    "dist:portable": "npm run build && electron-builder --win portable"
+    "dist:portable": "npm run build && electron-builder --win portable",
+    "dist:linux": "npm run build && electron-builder --linux"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

@@ -91,9 +91,10 @@ linux:
   icon: resources/icon.png
   artifactName: ${productName}-${version}-${arch}.${ext}
   desktop:
-    Name: CosmicSSH
-    Comment: Personal SSH/SFTP client
-    Categories: Network;RemoteAccess;
+    entry:
+      Name: CosmicSSH
+      Comment: Personal SSH/SFTP client
+      Categories: Network;RemoteAccess;
 
 # Auto-updater wiring deferred per plan M10 ("disabled by default for v1 —
 # confirm with me before enabling"). When ready, switch this to:

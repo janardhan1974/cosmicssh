@@ -46,6 +46,12 @@ export function ProfileEditor({
   // editor lets you pick anything but yourself.
   const allProfiles = useProfilesStore((s) => s.profiles)
   const jumpCandidates = allProfiles.filter((p) => p.id !== initial?.id)
+  // Route saves through the store actions, NOT raw IPC — the store mirrors
+  // the disk state into renderer-visible `profiles`, which is what the
+  // sidebar subscribes to. Calling window.api.profiles.create directly would
+  // persist to disk but leave the sidebar stale until the next reload.
+  const createProfile = useProfilesStore((s) => s.create)
+  const updateProfileInStore = useProfilesStore((s) => s.update)
 
   // Track which submit button was clicked so the same handler can branch.
   const [submitIntent, setSubmitIntent] = useState<'save' | 'connect'>('save')
@@ -104,10 +110,10 @@ export function ProfileEditor({
 
       let saved: SessionProfile
       if (mode === 'create') {
-        saved = await window.api.profiles.create(draft)
+        saved = await createProfile(draft)
       } else {
         if (!initial) throw new Error('edit mode requires initial profile')
-        saved = await window.api.profiles.update({
+        saved = await updateProfileInStore({
           ...initial,
           ...draft,
         })

@@ -2,6 +2,7 @@ import { app, BrowserWindow, Menu, dialog, nativeImage, screen } from 'electron'
 import type { MenuItemConstructorOptions } from 'electron'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { BUILD_DATE_DISPLAY, BUILD_VERSION } from './build-info'
 import { registerIpcHandlers } from './ipc-handlers'
 
 const DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
@@ -253,7 +254,7 @@ function buildAppMenu(): void {
               message: 'CosmicSSH',
               detail:
                 `Personal SSH/SFTP client for Windows · May 2026\n` +
-                `Version ${app.getVersion()}\n\n` +
+                `Version ${BUILD_VERSION} — built ${BUILD_DATE_DISPLAY}\n\n` +
                 `Features\n` +
                 `  • Multi-tab SSH terminals (xterm.js, 256-color)\n` +
                 `  • Dual-pane SFTP with drag-and-drop transfers\n` +

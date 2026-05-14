@@ -28,6 +28,10 @@ type State = {
   setMode: (sessionId: string, mode: TabMode) => void
   closeTab: (sessionId: string) => void
   markClosed: (sessionId: string, detail: string) => void
+  // Replace a closed tab's sessionId with a freshly-opened one. Used by the
+  // SFTP-pane Reconnect button so the tab keeps its position rather than
+  // being closed + reopened (which loses tab order and tab-mode state).
+  replaceSession: (oldSessionId: string, newSessionId: string) => void
 }
 
 export const useSessionsStore = create<State>((set, get) => ({
@@ -58,6 +62,16 @@ export const useSessionsStore = create<State>((set, get) => ({
           ? { ...t, status: 'closed', closedDetail: detail }
           : t,
       ),
+    }),
+  replaceSession: (oldSessionId, newSessionId) =>
+    set((s) => {
+      const tabs: Tab[] = s.tabs.map((t) =>
+        t.sessionId === oldSessionId
+          ? { ...t, sessionId: newSessionId, status: 'open' as const, closedDetail: undefined }
+          : t,
+      )
+      const activeId = s.activeId === oldSessionId ? newSessionId : s.activeId
+      return { tabs, activeId }
     }),
 }))
 

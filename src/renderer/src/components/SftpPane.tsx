@@ -9,6 +9,7 @@ import {
 } from 'react'
 import type { FsEntry } from '../../../shared/types'
 import { usePlatformStore } from '../stores/platform-store'
+import { useSessionsStore } from '../stores/sessions-store'
 
 type Kind = 'local' | 'remote'
 
@@ -47,6 +48,8 @@ type Props = {
   // a folder row (used for "move into" semantics on the remote pane);
   // otherwise the drop is on the pane background and target = current path.
   onDrop: (source: SftpDragSource, targetSubfolder: string | null) => void
+  // Fired when the user clicks Reconnect on a closed-session banner.
+  onReconnect: () => void
 }
 
 type SortKey = 'name' | 'size' | 'mtime'
@@ -56,15 +59,29 @@ const DRIVES_PATH = ''
 const SEP_REMOTE = '/'
 
 export const SftpPane = forwardRef<SftpPaneHandle, Props>(function SftpPane(
-  { kind, sessionId, onAction, onDrop },
+  { kind, sessionId, onAction, onDrop, onReconnect },
   ref,
 ) {
+  // Read this tab's session status. If it flips to 'closed' we render a
+  // Reconnect banner instead of letting the user fire useless IPCs.
+  const sessionStatus = useSessionsStore(
+    (s) => s.tabs.find((t) => t.sessionId === sessionId)?.status ?? 'open',
+  )
+  const isDisconnected = sessionStatus === 'closed'
   const [dragOver, setDragOver] = useState<string | null>(null)
   // dragOver: null = no drop highlight; '' = pane background; folder name = that row
   const platform = usePlatformStore((s) => s.info)
+
+  // Remote pane uses '/' as its safe default; local uses '' (drives view).
+  // This avoids ever firing an sftp:list IPC with an empty `path` — the zod
+  // schema requires min 1 char so an empty string would crash mid-session
+  // (was seen after the SSH connection idled out for an hour).
+  const remoteDefaultPath = '/'
   // For the local pane we use the OS's native separator; remote is always POSIX.
   const sep = kind === 'local' ? platform.sep : SEP_REMOTE
-  const [path, setPath] = useState<string>('')
+  // Remote starts at '/' so even a fast-fire Refresh (before mount-effect
+  // navigate finishes) sends a valid path. Local starts at '' = drives view.
+  const [path, setPath] = useState<string>(kind === 'remote' ? remoteDefaultPath : '')
   const [entries, setEntries] = useState<FsEntry[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -76,11 +93,15 @@ export const SftpPane = forwardRef<SftpPaneHandle, Props>(function SftpPane(
 
   const navigate = useCallback(
     async (newPath: string) => {
+      // Belt-and-suspenders: zod requires min 1 char on the remote `path`,
+      // so refuse to fire an IPC with an empty string. Fall back to '/'.
+      const targetPath =
+        kind === 'remote' && newPath.trim() === '' ? remoteDefaultPath : newPath
       setError(null)
       setBusy(true)
       try {
         if (kind === 'local') {
-          const result = await window.api.local.list({ path: newPath })
+          const result = await window.api.local.list({ path: targetPath })
           if (result.type === 'drives') {
             setPath(DRIVES_PATH)
             setEntries(
@@ -100,10 +121,10 @@ export const SftpPane = forwardRef<SftpPaneHandle, Props>(function SftpPane(
             setEntries(result.items)
           }
         } else {
-          const items = await window.api.sftp.list({ sessionId, path: newPath })
+          const items = await window.api.sftp.list({ sessionId, path: targetPath })
           // ssh2's sftp.realpath('.') would resolve cwd; we don't expose it.
           // Display '.' as '~' so users see something meaningful.
-          const resolved = newPath === '.' ? '~' : newPath
+          const resolved = targetPath === '.' ? '~' : targetPath
           setPath(resolved)
           setEntries(items)
         }
@@ -118,10 +139,17 @@ export const SftpPane = forwardRef<SftpPaneHandle, Props>(function SftpPane(
   )
 
   const reload = useCallback(async () => {
+    // If the underlying SSH session has died, "Refresh" auto-triggers a
+    // reconnect rather than firing a doomed sftp:list. After replaceSession
+    // swaps in the fresh sessionId, the pane's mount-effect re-fetches.
+    if (isDisconnected) {
+      onReconnect()
+      return
+    }
     // navigate to current path; for remote with display '~' we re-use '.'
     const target = kind === 'remote' && path === '~' ? '.' : path
     await navigate(target)
-  }, [kind, path, navigate])
+  }, [kind, path, navigate, isDisconnected, onReconnect])
 
   // Initial path
   useEffect(() => {
@@ -357,8 +385,24 @@ export const SftpPane = forwardRef<SftpPaneHandle, Props>(function SftpPane(
     >
       <header className="sftp-pane-header">
         <span className="sftp-pane-title">{isRemote ? 'Remote' : 'Local'}</span>
-        <button type="button" className="icon-btn" onClick={goUp} title="Up">↑</button>
+        <button type="button" className="icon-btn" onClick={goUp} title="Up" disabled={isDisconnected}>↑</button>
       </header>
+
+      {isDisconnected && isRemote && (
+        <div className="sftp-disconnected" role="alert">
+          <span className="sftp-disconnected-msg">
+            Session disconnected — likely an idle timeout. The file list is
+            stale; refresh and other actions will fail until you reconnect.
+          </span>
+          <button
+            type="button"
+            className="sftp-reconnect-btn"
+            onClick={onReconnect}
+          >
+            Reconnect
+          </button>
+        </div>
+      )}
 
       <div className="sftp-toolbar">
         {isLocal && (
@@ -383,7 +427,14 @@ export const SftpPane = forwardRef<SftpPaneHandle, Props>(function SftpPane(
             ↓ Download
           </button>
         )}
-        <button type="button" className="icon-btn" onClick={reload} title="Refresh">↻</button>
+        <button
+          type="button"
+          className="icon-btn"
+          onClick={reload}
+          title={isDisconnected && isRemote ? 'Reconnect (session dropped)' : 'Refresh'}
+        >
+          {isDisconnected && isRemote ? '⟳' : '↻'}
+        </button>
         <button
           type="button"
           className="icon-btn"

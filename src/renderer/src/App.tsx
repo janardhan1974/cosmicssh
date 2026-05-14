@@ -46,6 +46,10 @@ export function App() {
 
   const [editor, setEditor] = useState<EditorState>(null)
   const [passwordPrompt, setPasswordPrompt] = useState<SessionProfile | null>(null)
+  // When set, the next successful connect via PasswordPrompt should REPLACE
+  // this dead session in-place (used by the SFTP-pane Reconnect button)
+  // rather than opening a new tab.
+  const [reconnectTargetSessionId, setReconnectTargetSessionId] = useState<string | null>(null)
   const [hostKeyPrompt, setHostKeyPrompt] = useState<HostKeyPromptEvent | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -247,6 +251,8 @@ export function App() {
     const profile = passwordPrompt
     if (!profile) return
     setPasswordPrompt(null)
+    const reconnectInto = reconnectTargetSessionId
+    setReconnectTargetSessionId(null)
     try {
       let target = profile
       if (savePassword !== profile.savePassword) {
@@ -258,7 +264,12 @@ export function App() {
         profileId: target.id,
         passwordOverride: password,
       })
-      addTab(tabFromProfile(result.sessionId, target))
+      if (reconnectInto) {
+        // Swap into the existing (closed) tab; preserves its position + mode.
+        replaceSession(reconnectInto, result.sessionId)
+      } else {
+        addTab(tabFromProfile(result.sessionId, target))
+      }
     } catch (err) {
       surface(err)
     }
@@ -288,6 +299,44 @@ export function App() {
     }
     closeTab(sessionId)
   }
+
+  // Reconnect a closed tab in place using its profile snapshot. Asks for the
+  // password if no saved credential exists. The tab keeps its position and
+  // mode (terminal/SFTP) — only the sessionId is swapped.
+  const replaceSession = useSessionsStore((s) => s.replaceSession)
+  const handleReconnectTab = useCallback(
+    async (oldSessionId: string) => {
+      const tab = useSessionsStore.getState().tabs.find((t) => t.sessionId === oldSessionId)
+      if (!tab) return
+      const profileId = tab.profile.id
+      if (!profileId) {
+        surface(new Error('This tab was opened ad-hoc and cannot be reconnected automatically.'))
+        return
+      }
+      // Look up the live profile (in case it was renamed/edited since connect)
+      const profile = useProfilesStore.getState().profiles.find((p) => p.id === profileId)
+      if (!profile) {
+        surface(new Error('The original profile no longer exists.'))
+        return
+      }
+      try {
+        const hasCred = await window.api.credentials.has({ profileId: profile.id })
+        if (!hasCred) {
+          // Need to ask for password — defer to existing PasswordPrompt flow.
+          // Mark which tab we're targeting via a stash; PasswordPrompt's
+          // submit handler will swap into that tab.
+          setReconnectTargetSessionId(oldSessionId)
+          setPasswordPrompt(profile)
+          return
+        }
+        const result = await window.api.ssh.connectByProfile({ profileId: profile.id })
+        replaceSession(oldSessionId, result.sessionId)
+      } catch (err) {
+        surface(err)
+      }
+    },
+    [replaceSession],
+  )
 
   return (
     <div
@@ -344,6 +393,7 @@ export function App() {
                   <SftpView
                     sessionId={tab.sessionId}
                     isActive={tiled || isActive}
+                    onReconnect={() => handleReconnectTab(tab.sessionId)}
                   />
                 )}
               </div>

@@ -145,9 +145,28 @@ export class SshSessionManager {
         )
       })
 
+      // Track auth methods the server says it accepts (filled in by
+      // authHandler) so we can surface a clearer error when everything fails.
+      let serverAuthMethods: string[] = []
+      const attemptedMethods = new Set<string>()
+
       client.on('error', (err) => {
-        this.handlers.onError({ sessionId, message: err.message })
-        settle(() => reject(err))
+        let message = err.message
+        // Enrich the famously unhelpful "All configured authentication
+        // methods failed" with the methods the server actually wanted +
+        // which ones we tried.
+        if (message.includes('authentication methods failed')) {
+          const tried = [...attemptedMethods].join(', ') || 'none'
+          const allowed = serverAuthMethods.length > 0
+            ? serverAuthMethods.join(', ')
+            : '(unknown)'
+          message =
+            `${message}\n` +
+            `  We tried: ${tried}\n` +
+            `  Server accepts: ${allowed}`
+        }
+        this.handlers.onError({ sessionId, message })
+        settle(() => reject(new Error(message)))
       })
 
       const connectConfig: ConnectConfig = {
@@ -163,12 +182,58 @@ export class SshSessionManager {
             .then((ok) => verify(ok))
             .catch(() => verify(false))
         },
+        // Explicit auth-method ordering. ssh2's default flow tries one
+        // method based on which credentials are set; with authHandler we
+        // control the sequence AND see the server's accepted-methods list.
+        authHandler: (methodsLeft, _partialSuccess, callback) => {
+          if (Array.isArray(methodsLeft)) serverAuthMethods = methodsLeft
+          // Order: publickey first if we have one, else password, then
+          // keyboard-interactive (covers the "no plain password but kbd-
+          // interactive enabled" case common on Fortinet/F5 fronted boxes).
+          const wanted: Array<'publickey' | 'password' | 'keyboard-interactive'> = []
+          if (config.privateKey) wanted.push('publickey')
+          if (config.password !== undefined) {
+            wanted.push('password', 'keyboard-interactive')
+          }
+          for (const m of wanted) {
+            if (attemptedMethods.has(m)) continue
+            // If the server told us which methods are still left, skip ones
+            // not in that list — saves a guaranteed failure round-trip.
+            if (Array.isArray(methodsLeft) && !methodsLeft.includes(m)) continue
+            attemptedMethods.add(m)
+            if (m === 'password') {
+              return callback({
+                type: 'password',
+                username: config.username,
+                password: config.password!,
+              })
+            }
+            if (m === 'keyboard-interactive') {
+              return callback({
+                type: 'keyboard-interactive',
+                username: config.username,
+                // Respond to every prompt with the stored password — works for
+                // single-prompt "Password:" servers (most Fortinet/F5 setups).
+                // True multi-prompt 2FA needs a UI surface; that's a follow-up.
+                prompt: (_name, _instr, _lang, prompts, finish) => {
+                  finish(prompts.map(() => config.password ?? ''))
+                },
+              })
+            }
+            if (m === 'publickey') {
+              return callback({
+                type: 'publickey',
+                username: config.username,
+                key: config.privateKey!,
+                passphrase: config.passphrase,
+              })
+            }
+          }
+          // No more methods to try — abort. ssh2's runtime accepts `false`
+          // here to fail the connection (the @types/ssh2 signature omits it).
+          ;(callback as unknown as (v: false) => void)(false)
+        },
       }
-      // Set only the auth field the caller actually populated. Mixing
-      // password+key in ssh2 makes for confusing failure modes.
-      if (config.password !== undefined) connectConfig.password = config.password
-      if (config.privateKey) connectConfig.privateKey = config.privateKey
-      if (config.passphrase) connectConfig.passphrase = config.passphrase
       if (config.sock) connectConfig.sock = config.sock
 
       client.connect(connectConfig)
@@ -211,6 +276,13 @@ export class SshSessionManager {
       if (config.privateKey) cc.privateKey = config.privateKey
       if (config.passphrase) cc.passphrase = config.passphrase
       if (config.sock) cc.sock = config.sock
+      // Same keyboard-interactive fallback as the main connect path.
+      if (config.password !== undefined) {
+        cc.tryKeyboard = true
+        client.on('keyboard-interactive', (_name, _instr, _lang, prompts, finish) => {
+          finish(prompts.map(() => config.password ?? ''))
+        })
+      }
       client.connect(cc)
     })
   }
