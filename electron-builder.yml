@@ -1,0 +1,75 @@
+# electron-builder config — see BUILD.md for usage.
+# Per plan.md M10: NSIS installer + portable .exe targets, code signing
+# stubbed (acquire cert later), auto-updater disabled for v1.
+
+appId: com.shriramjana.jaijak
+productName: JaiJak
+copyright: Copyright © 2026 Shriram Jana
+
+directories:
+  output: release
+  buildResources: resources
+
+# package.json `main` already points to dist/main/index.js, so trust the
+# electron-builder default `files` list (it picks up production deps from
+# node_modules and everything emitted under dist/, asars the result).
+asar: true
+
+# Sourcemaps shouldn't ship to end users.
+files:
+  - "!**/*.map"
+  - "!**/*.ts"
+  - "!**/tsconfig*.json"
+  - "!**/.gitkeep"
+
+# Compression: 'store' = fast build, larger output. 'maximum' = slow build,
+# smallest output. Default ('normal') is a balance. For local-iteration builds
+# leave as-is; bump to 'maximum' for a release you ship widely.
+compression: normal
+
+# Windows targets — both fall out of the same build.
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  # Code signing left blank intentionally — see BUILD.md "Code signing" section.
+  # When you have a cert, set:
+  #   certificateFile: ./certs/codesign.pfx
+  #   certificatePassword: ${env.CSC_KEY_PASSWORD}
+  # icon: resources/icon.ico  # placeholder — Electron uses default until set
+
+# Wizard installer, per-user only for v0.0.1.
+# `allowElevation: true` requires the NSIS UAC plugin (extra cache dependency
+# that has been flaky to extract on some Windows setups). Per-machine install
+# can be added later by re-enabling allowElevation + perMachine: true; for
+# now friends installing the .exe just get a per-user install with no UAC.
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: JaiJak
+  artifactName: ${productName}-Setup-${version}-${arch}.${ext}
+
+portable:
+  artifactName: ${productName}-${version}-${arch}-portable.${ext}
+  # Stable temp-extraction dir so 2nd-and-later launches reuse the unpacked
+  # files instead of re-extracting ~75 MB every time. First launch is still
+  # slow (the extraction); every launch after is near-instant.
+  unpackDirName: jaijak
+  # Default request-execution-level is "user" — no UAC prompt on launch.
+
+# Auto-updater wiring deferred per plan M10 ("disabled by default for v1 —
+# confirm with me before enabling"). When ready, switch this to:
+#   publish:
+#     provider: github
+#     owner: janardhan1974
+#     repo: mobajana
+publish: null

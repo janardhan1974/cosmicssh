@@ -13,7 +13,7 @@ import type { SessionProfile } from '../../shared/types'
 // Sidebar width is layout state — kept in renderer-side localStorage rather
 // than the IPC-backed settings store. No need to round-trip the main process
 // for every drag delta.
-const SIDEBAR_WIDTH_KEY = 'termbox.sidebarWidth'
+const SIDEBAR_WIDTH_KEY = 'jaijak.sidebarWidth'
 const SIDEBAR_DEFAULT = 260
 const SIDEBAR_MIN = 180
 const SIDEBAR_MAX = 500
@@ -232,7 +232,7 @@ function EmptyState({ onNewProfile }: { onNewProfile: () => void }) {
   return (
     <div className="empty-pane">
       <div>
-        <h1>TermBox</h1>
+        <h1>JaiJak</h1>
         <p className="muted">
           Pick a profile in the sidebar, or
         </p>
