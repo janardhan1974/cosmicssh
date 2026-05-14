@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import type { ProfileDraft, SessionProfile } from '../../../shared/types'
+import { useProfilesStore } from '../stores/profiles-store'
 
 type Props = {
   mode: 'create' | 'edit'
@@ -24,8 +25,15 @@ export function ProfileEditor({
   const [username, setUsername] = useState(initial?.username ?? '')
   const [password, setPassword] = useState('')
   const [savePassword, setSavePassword] = useState(initial?.savePassword ?? false)
+  const [jumpHost, setJumpHost] = useState<string>(initial?.jumpHost ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Available jump-host candidates: every other profile (excluding self when
+  // editing). Cycle prevention is enforced server-side at connect time; the
+  // editor lets you pick anything but yourself.
+  const allProfiles = useProfilesStore((s) => s.profiles)
+  const jumpCandidates = allProfiles.filter((p) => p.id !== initial?.id)
 
   // Track which submit button was clicked so the same handler can branch.
   const [submitIntent, setSubmitIntent] = useState<'save' | 'connect'>('save')
@@ -71,6 +79,7 @@ export function ProfileEditor({
         username: username.trim(),
         authMethod: 'password', // M2 will add 'key' and 'agent'
         group: group.trim() || undefined,
+        jumpHost: jumpHost || undefined,
         savePassword,
       }
 
@@ -180,6 +189,29 @@ export function ProfileEditor({
             disabled={busy}
           />
         </label>
+
+        <label>
+          <span>Jump host (optional)</span>
+          <select
+            value={jumpHost}
+            onChange={(e) => setJumpHost(e.target.value)}
+            disabled={busy}
+          >
+            <option value="">Direct (no jump)</option>
+            {jumpCandidates.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name} — {p.username}@{p.host}
+              </option>
+            ))}
+          </select>
+        </label>
+        {jumpHost && (
+          <p className="hint muted">
+            Jump host must have <strong>Save Password</strong> enabled. Set up its profile
+            with a saved password, otherwise this connection will fail with a clear
+            error at connect time.
+          </p>
+        )}
 
         <label>
           <span>

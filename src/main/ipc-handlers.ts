@@ -3,10 +3,12 @@
 // logic (plan.md security non-negotiables).
 
 import { BrowserWindow, ipcMain } from 'electron'
+import type { Client } from 'ssh2'
 import { CredentialVault } from './credential-vault'
 import { ProfileStore } from './profile-store'
 import { SettingsStore } from './settings-store'
 import { SshSessionManager } from './ssh-session-manager'
+import type { SessionProfile } from '../shared/types'
 import {
   ConnectByProfilePayloadSchema,
   ConnectPayloadSchema,
@@ -64,6 +66,61 @@ export function registerIpcHandlers(): SshSessionManager {
     return { sessionId }
   })
 
+  // Walk the jumpHost chain (recursively) and return:
+  //   - the inner-most hop client to forwardOut() through, or null if direct
+  //   - all hops opened along the way (caller stores these on the session
+  //     for cleanup at disconnect time)
+  // Cycle detection: a `visited` set keyed by profile id.
+  async function openHopChain(
+    profile: SessionProfile,
+    visited: Set<string>,
+  ): Promise<{ hopClient: Client; hops: Client[] }> {
+    if (visited.has(profile.id)) {
+      throw new Error(
+        `jump-host cycle detected at "${profile.name}" — fix the chain in profile editor`,
+      )
+    }
+    visited.add(profile.id)
+
+    if (profile.authMethod !== 'password') {
+      throw new Error(
+        `jump host "${profile.name}" uses ${profile.authMethod} auth — not yet supported (M2)`,
+      )
+    }
+    const password = vault.load(profile.id)
+    if (password === null) {
+      throw new Error(
+        `jump host "${profile.name}" has no saved password — open its profile and tick "Save Password"`,
+      )
+    }
+
+    let sock: Awaited<ReturnType<typeof sessions.forwardOut>> | undefined
+    const hops: Client[] = []
+
+    if (profile.jumpHost) {
+      const inner = profiles.get(profile.jumpHost)
+      if (!inner) {
+        throw new Error(
+          `profile "${profile.name}" references missing jump host id ${profile.jumpHost}`,
+        )
+      }
+      const innerChain = await openHopChain(inner, visited)
+      hops.push(...innerChain.hops)
+      sock = await sessions.forwardOut(innerChain.hopClient, profile.host, profile.port)
+    }
+
+    const hopClient = await sessions.openHopClient({
+      host: profile.host,
+      port: profile.port,
+      username: profile.username,
+      password,
+      sock,
+    })
+    hops.push(hopClient)
+
+    return { hopClient, hops }
+  }
+
   ipcMain.handle(IPC_SSH_CONNECT_BY_PROFILE, async (_event, raw) => {
     const payload = validate(ConnectByProfilePayloadSchema, raw)
     const profile = profiles.get(payload.profileId)
@@ -82,12 +139,39 @@ export function registerIpcHandlers(): SshSessionManager {
       throw new Error('no saved password and none provided')
     }
 
-    const sessionId = await sessions.connect({
-      host: profile.host,
-      port: profile.port,
-      username: profile.username,
-      password,
-    })
+    // Resolve any jump-host chain BEFORE we open the target session.
+    let sock: Awaited<ReturnType<typeof sessions.forwardOut>> | undefined
+    let hops: Client[] = []
+    if (profile.jumpHost) {
+      const jumpProfile = profiles.get(profile.jumpHost)
+      if (!jumpProfile) {
+        throw new Error(
+          `profile "${profile.name}" references missing jump host id ${profile.jumpHost}`,
+        )
+      }
+      const visited = new Set<string>([profile.id]) // include target in cycle set
+      const chain = await openHopChain(jumpProfile, visited)
+      hops = chain.hops
+      sock = await sessions.forwardOut(chain.hopClient, profile.host, profile.port)
+    }
+
+    let sessionId: string
+    try {
+      sessionId = await sessions.connect({
+        host: profile.host,
+        port: profile.port,
+        username: profile.username,
+        password,
+        sock,
+        hops,
+      })
+    } catch (err) {
+      // Target connect failed — close any hops we opened so we don't leak.
+      for (let i = hops.length - 1; i >= 0; i--) {
+        try { hops[i]?.end() } catch { /* */ }
+      }
+      throw err
+    }
 
     profiles.touchLastUsed(profile.id)
 

@@ -84,17 +84,29 @@ export function Sidebar({ onConnect, onEdit, onNewProfile, onOpenSettings }: Pro
               </button>
               {!isCollapsed && (
                 <ul className="profile-list">
-                  {items.map((profile) => (
+                  {items.map((profile) => {
+                    const jumpName = profile.jumpHost
+                      ? profiles.find((p) => p.id === profile.jumpHost)?.name
+                      : undefined
+                    return (
                     <li key={profile.id} className="profile-item">
                       <button
                         type="button"
                         className="profile-row"
                         onClick={() => onConnect(profile)}
-                        title={`${profile.username}@${profile.host}:${profile.port}`}
+                        title={
+                          jumpName
+                            ? `${profile.username}@${profile.host}:${profile.port} via ${jumpName}`
+                            : `${profile.username}@${profile.host}:${profile.port}`
+                        }
                       >
-                        <span className="profile-name">{profile.name}</span>
+                        <span className="profile-name">
+                          {profile.name}
+                          {jumpName && <span className="jump-badge" title={`via ${jumpName}`}>↳</span>}
+                        </span>
                         <span className="profile-meta">
                           {profile.username}@{profile.host}
+                          {jumpName && <span className="profile-via"> via {jumpName}</span>}
                         </span>
                       </button>
                       <div className="profile-actions">
@@ -116,7 +128,8 @@ export function Sidebar({ onConnect, onEdit, onNewProfile, onOpenSettings }: Pro
                         </button>
                       </div>
                     </li>
-                  ))}
+                    )
+                  })}
                 </ul>
               )}
             </div>
