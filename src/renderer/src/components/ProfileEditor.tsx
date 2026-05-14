@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
-import type { ProfileDraft, SessionProfile } from '../../../shared/types'
+import type { AuthMethod, ProfileDraft, Protocol, SessionProfile } from '../../../shared/types'
+import { usePlatformStore } from '../stores/platform-store'
 import { useProfilesStore } from '../stores/profiles-store'
 
 type Props = {
@@ -26,6 +27,17 @@ export function ProfileEditor({
   const [password, setPassword] = useState('')
   const [savePassword, setSavePassword] = useState(initial?.savePassword ?? false)
   const [jumpHost, setJumpHost] = useState<string>(initial?.jumpHost ?? '')
+  const [protocol, setProtocol] = useState<Protocol>(initial?.protocol ?? 'ssh')
+  const [authMethod, setAuthMethod] = useState<AuthMethod>(initial?.authMethod ?? 'password')
+  const [keyPath, setKeyPath] = useState(initial?.keyPath ?? '')
+  const isKey = authMethod === 'key'
+  // Secret field labels swap based on auth method — "password" for password
+  // auth, "passphrase" for key auth.
+  const secretLabel = isKey ? 'Passphrase' : 'Password'
+  const platform = usePlatformStore((s) => s.info)
+  const keyPlaceholder = platform.isWindows
+    ? '%USERPROFILE%\\.ssh\\id_ed25519'
+    : '~/.ssh/id_ed25519'
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -49,9 +61,11 @@ export function ProfileEditor({
     if (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535) {
       return setError('Port must be between 1 and 65535')
     }
-    if (savePassword && password.length === 0 && mode === 'create') {
+    if (savePassword && password.length === 0 && mode === 'create' && !isKey) {
       return setError('Save Password is on but no password was entered')
     }
+    // For key auth: saving an empty passphrase is meaningful (it means
+    // "this key has no passphrase") — don't error in that case.
 
     // If user clicked "Save & Connect" with no password typed, make sure we
     // have something to authenticate with. For new profiles that means a
@@ -72,12 +86,17 @@ export function ProfileEditor({
 
     setBusy(true)
     try {
+      if (isKey && !keyPath.trim()) {
+        return setError('Key path is required for key auth')
+      }
       const draft: ProfileDraft = {
         name: name.trim(),
         host: host.trim(),
         port: portNum,
         username: username.trim(),
-        authMethod: 'password', // M2 will add 'key' and 'agent'
+        authMethod,
+        keyPath: isKey ? keyPath.trim() : undefined,
+        protocol,
         group: group.trim() || undefined,
         jumpHost: jumpHost || undefined,
         savePassword,
@@ -139,6 +158,18 @@ export function ProfileEditor({
             disabled={busy}
             placeholder="e.g. RunPod gpu-1"
           />
+        </label>
+
+        <label>
+          <span>Connection type</span>
+          <select
+            value={protocol}
+            onChange={(e) => setProtocol(e.target.value as Protocol)}
+            disabled={busy}
+          >
+            <option value="ssh">SSH (shell + SFTP)</option>
+            <option value="sftp-only">SFTP only (no shell)</option>
+          </select>
         </label>
 
         <label>
@@ -214,9 +245,51 @@ export function ProfileEditor({
         )}
 
         <label>
+          <span>Authentication</span>
+          <select
+            value={authMethod}
+            onChange={(e) => setAuthMethod(e.target.value as AuthMethod)}
+            disabled={busy}
+          >
+            <option value="password">Password</option>
+            <option value="key">Private key</option>
+          </select>
+        </label>
+
+        {isKey && (
+          <label>
+            <span>Key file</span>
+            <span className="row">
+              <input
+                type="text"
+                value={keyPath}
+                onChange={(e) => setKeyPath(e.target.value)}
+                spellCheck={false}
+                autoComplete="off"
+                disabled={busy}
+                className="grow"
+                placeholder={'%USERPROFILE%\\.ssh\\id_ed25519'}
+              />
+              <button
+                type="button"
+                className="secondary"
+                disabled={busy}
+                onClick={async () => {
+                  const picked = await window.api.dialog.pickKeyFile()
+                  if (picked) setKeyPath(picked)
+                }}
+              >
+                Browse…
+              </button>
+            </span>
+          </label>
+        )}
+
+        <label>
           <span>
-            Password
+            {secretLabel}
             {mode === 'edit' && ' (leave blank to keep existing)'}
+            {isKey && ' (blank = key has no passphrase)'}
           </span>
           <input
             type="password"
@@ -234,7 +307,7 @@ export function ProfileEditor({
             onChange={(e) => setSavePassword(e.target.checked)}
             disabled={busy}
           />
-          <span>Save password (encrypted with Windows DPAPI)</span>
+          <span>Save {isKey ? 'passphrase' : 'password'} (encrypted with Windows DPAPI)</span>
         </label>
 
         {error && <div className="error" role="alert">{error}</div>}

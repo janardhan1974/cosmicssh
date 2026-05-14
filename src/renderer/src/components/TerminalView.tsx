@@ -3,7 +3,39 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import '@xterm/xterm/css/xterm.css'
+import type { ITheme } from '@xterm/xterm'
 import { useSettingsStore } from '../stores/settings-store'
+import type { AppTheme } from '../../../shared/types'
+
+// xterm theme colors per app theme. Kept tight to a few essential keys —
+// background, foreground, cursor, selection. Everything else inherits xterm's
+// default ANSI palette.
+function themeForXterm(theme: AppTheme): ITheme {
+  switch (theme) {
+    case 'light':
+      return {
+        background: '#ffffff',
+        foreground: '#000000',
+        cursor: '#000000',
+        selectionBackground: '#c8d4ec',
+      }
+    case 'blue':
+      return {
+        background: '#eef4fa',
+        foreground: '#16263a',
+        cursor: '#16263a',
+        selectionBackground: '#b5c8db',
+      }
+    case 'dark':
+    default:
+      return {
+        background: '#0f0f10',
+        foreground: '#ffffff',
+        cursor: '#ffffff',
+        selectionBackground: '#3a3a3d',
+      }
+  }
+}
 
 type Props = {
   sessionId: string
@@ -16,6 +48,8 @@ export function TerminalView({ sessionId, isActive }: Props) {
   const fitRef = useRef<FitAddon | null>(null)
   const fontFamily = useSettingsStore((s) => s.terminal.fontFamily)
   const fontSize = useSettingsStore((s) => s.terminal.fontSize)
+  const theme = useSettingsStore((s) => s.terminal.theme)
+  const textColor = useSettingsStore((s) => s.terminal.textColor)
 
   // Mount xterm once per sessionId. Stays mounted across tab switches so
   // scrollback survives — the parent hides us with display:none when inactive.
@@ -23,6 +57,10 @@ export function TerminalView({ sessionId, isActive }: Props) {
     if (!hostRef.current) return
 
     const initialSettings = useSettingsStore.getState().terminal
+    const initialThemeBase = themeForXterm(initialSettings.theme)
+    const initialTheme = initialSettings.textColor
+      ? { ...initialThemeBase, foreground: initialSettings.textColor, cursor: initialSettings.textColor }
+      : initialThemeBase
     const term = new Terminal({
       // plan.md M1 note ("windowsMode: false"): xterm v6 removed it. The v6
       // replacement (windowsPty) targets a LOCAL Windows PTY — we never do
@@ -31,12 +69,7 @@ export function TerminalView({ sessionId, isActive }: Props) {
       fontSize: initialSettings.fontSize,
       cursorBlink: true,
       scrollback: 10_000,
-      theme: {
-        background: '#0f0f10',
-        foreground: '#e8e6e3',
-        cursor: '#e8e6e3',
-        selectionBackground: '#3a3a3d',
-      },
+      theme: initialTheme,
     })
     const fit = new FitAddon()
     term.loadAddon(fit)
@@ -78,6 +111,35 @@ export function TerminalView({ sessionId, isActive }: Props) {
       return true
     })
 
+    // Auto-copy on selection (MobaXterm/PuTTY convention). Whenever the
+    // selection changes and we have non-empty text, push it to the system
+    // clipboard.
+    const selSub = term.onSelectionChange(() => {
+      const sel = term.getSelection()
+      if (sel.length > 0) {
+        void navigator.clipboard.writeText(sel).catch(() => {
+          // Renderer clipboard write occasionally rejects (e.g. window not
+          // focused). Swallow — the next selection will retry.
+        })
+      }
+    })
+
+    // Right-click → paste clipboard contents into the terminal. Uses
+    // term.paste() so the shell sees bracketed-paste markers if it has
+    // them enabled.
+    const onContextMenu = async (e: MouseEvent) => {
+      e.preventDefault()
+      try {
+        const text = await navigator.clipboard.readText()
+        if (text && termRef.current) {
+          termRef.current.paste(text)
+        }
+      } catch {
+        // clipboard read denied or empty — silent
+      }
+    }
+    hostRef.current.addEventListener('contextmenu', onContextMenu)
+
     const dataSub = term.onData((data) => {
       void window.api.ssh.write({ sessionId, data })
     })
@@ -114,9 +176,11 @@ export function TerminalView({ sessionId, isActive }: Props) {
     return () => {
       window.removeEventListener('resize', onWindowResize)
       host?.removeEventListener('wheel', onWheel, { capture: true } as EventListenerOptions)
+      host?.removeEventListener('contextmenu', onContextMenu)
       ro.disconnect()
       dataSub.dispose()
       resizeSub.dispose()
+      selSub.dispose()
       unsubData()
       unsubClose()
       unsubError()
@@ -152,6 +216,17 @@ export function TerminalView({ sessionId, isActive }: Props) {
     term.options.fontSize = fontSize
     fit.fit()
   }, [fontFamily, fontSize])
+
+  // Re-skin the xterm instance when the app theme or text color changes
+  // so terminal background/foreground match the chrome.
+  useEffect(() => {
+    const term = termRef.current
+    if (!term) return
+    const base = themeForXterm(theme)
+    term.options.theme = textColor
+      ? { ...base, foreground: textColor, cursor: textColor }
+      : base
+  }, [theme, textColor])
 
   return (
     <div

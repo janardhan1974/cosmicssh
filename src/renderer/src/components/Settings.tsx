@@ -1,5 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { useSettingsStore } from '../stores/settings-store'
+import { APP_THEMES, type AppTheme } from '../../../shared/types'
 
 type Props = {
   onClose: () => void
@@ -89,6 +90,9 @@ export function Settings({ onClose }: Props) {
 
   const [fontFamily, setFontFamily] = useState(current.fontFamily)
   const [fontSize, setFontSize] = useState(current.fontSize)
+  const [theme, setThemeLocal] = useState<AppTheme>(current.theme)
+  const [useThemeText, setUseThemeText] = useState(current.textColor === null)
+  const [textColor, setTextColor] = useState<string>(current.textColor ?? '#e8e6e3')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -97,7 +101,12 @@ export function Settings({ onClose }: Props) {
     setError(null)
     setBusy(true)
     try {
-      await setTerminal({ fontFamily, fontSize })
+      await setTerminal({
+        fontFamily,
+        fontSize,
+        theme,
+        textColor: useThemeText ? null : textColor,
+      })
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -114,9 +123,56 @@ export function Settings({ onClose }: Props) {
       >
         <h2>Terminal settings</h2>
         <p className="muted">
-          Applies live to all open and new terminals. Use Ctrl + scroll wheel
-          (or Ctrl + = / − / 0) to zoom on a per-terminal basis.
+          Applies live. Use Ctrl + scroll wheel (or Ctrl + = / − / 0) to zoom
+          on a per-terminal basis.
         </p>
+
+        <label>
+          <span>Theme</span>
+          <select
+            value={theme}
+            onChange={(e) => setThemeLocal(e.target.value as AppTheme)}
+            disabled={busy}
+          >
+            {APP_THEMES.map((t) => (
+              <option key={t.value} value={t.value}>{t.label}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={useThemeText}
+            onChange={(e) => setUseThemeText(e.target.checked)}
+            disabled={busy}
+          />
+          <span>Text color follows theme</span>
+        </label>
+
+        {!useThemeText && (
+          <label>
+            <span>Text color</span>
+            <span className="color-row">
+              <input
+                type="color"
+                value={textColor}
+                onChange={(e) => setTextColor(e.target.value)}
+                disabled={busy}
+                className="color-swatch"
+              />
+              <input
+                type="text"
+                value={textColor}
+                onChange={(e) => setTextColor(e.target.value)}
+                disabled={busy}
+                pattern="^#[0-9a-fA-F]{6}$"
+                placeholder="#e8e6e3"
+                style={{ flex: 1, fontFamily: 'monospace' }}
+              />
+            </span>
+          </label>
+        )}
 
         <label>
           <span>Font</span>

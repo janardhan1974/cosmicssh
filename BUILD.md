@@ -1,4 +1,4 @@
-# Building JaiJak for Windows
+# Building CosmicSSH for Windows
 
 This document covers producing distributable `.exe` artifacts. For day-to-day development see `plan.md` (M0 has the dev workflow).
 
@@ -19,8 +19,8 @@ npm run dist
 
 Outputs land in `release/`:
 
-- `release/JaiJak-Setup-0.0.1-x64.exe` — wizard installer (Start Menu + desktop shortcut, uninstaller registered)
-- `release/JaiJak-0.0.1-x64-portable.exe` — single-file portable, no install
+- `release/CosmicSSH-Setup-0.0.1-x64.exe` — wizard installer (Start Menu + desktop shortcut, uninstaller registered)
+- `release/CosmicSSH-0.0.1-x64-portable.exe` — single-file portable, no install
 
 You can also build either target alone:
 
@@ -64,10 +64,10 @@ This is normal for any unsigned `.exe`. To make it disappear, you need code sign
 
 ### 3. First-run state
 
-`%APPDATA%\JaiJak\` will be created on first launch and hold:
+`%APPDATA%\CosmicSSH\` will be created on first launch and hold:
 
 ```
-%APPDATA%\JaiJak\
+%APPDATA%\CosmicSSH\
   profiles.json       # session metadata (no secrets)
   credentials.json    # DPAPI-encrypted passwords (opaque to other Windows users)
   settings.json       # font, etc.
@@ -94,10 +94,10 @@ The plan requires code signing; the build is wired but no cert is configured. To
 
 ### Wiring once you have a cert
 
-Drop the `.pfx` somewhere outside the repo (e.g. `C:\Users\<you>\codesign\jaijak.pfx`) and in PowerShell before running the dist command:
+Drop the `.pfx` somewhere outside the repo (e.g. `C:\Users\<you>\codesign\cosmicssh.pfx`) and in PowerShell before running the dist command:
 
 ```powershell
-$env:CSC_LINK = "C:\Users\janardha\codesign\jaijak.pfx"
+$env:CSC_LINK = "C:\Users\janardha\codesign\cosmicssh.pfx"
 $env:CSC_KEY_PASSWORD = "<the cert password>"
 npm run dist
 ```
@@ -160,5 +160,5 @@ Real-time scanning hammers `electron-builder` (it shuffles thousands of small fi
    - You can create a profile, save it.
    - Reopening the app, the profile persists.
    - You can connect through it (smoke test against a real host).
-3. Open `%APPDATA%\JaiJak\` and confirm the JSON files were created.
-4. Check `Control Panel → Programs and Features` (NSIS only) — JaiJak should be listed and uninstallable.
+3. Open `%APPDATA%\CosmicSSH\` and confirm the JSON files were created.
+4. Check `Control Panel → Programs and Features` (NSIS only) — CosmicSSH should be listed and uninstallable.

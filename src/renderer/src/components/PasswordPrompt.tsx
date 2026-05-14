@@ -11,6 +11,9 @@ export function PasswordPrompt({ profile, onCancel, onSubmit }: Props) {
   const [password, setPassword] = useState('')
   const [save, setSave] = useState(profile.savePassword)
 
+  const isKey = profile.authMethod === 'key'
+  const secretLabel = isKey ? 'Passphrase' : 'Password'
+
   const handle = (e: FormEvent) => {
     e.preventDefault()
     onSubmit(password, save)
@@ -23,13 +26,14 @@ export function PasswordPrompt({ profile, onCancel, onSubmit }: Props) {
         onClick={(e) => e.stopPropagation()}
         onSubmit={handle}
       >
-        <h2>Password for {profile.name}</h2>
+        <h2>{secretLabel} for {profile.name}</h2>
         <p className="muted">
           {profile.username}@{profile.host}:{profile.port}
+          {isKey && profile.keyPath ? ` — key ${profile.keyPath}` : ''}
         </p>
 
         <label>
-          <span>Password</span>
+          <span>{secretLabel}{isKey ? ' (blank if key has no passphrase)' : ''}</span>
           <input
             type="password"
             value={password}
@@ -45,7 +49,7 @@ export function PasswordPrompt({ profile, onCancel, onSubmit }: Props) {
             checked={save}
             onChange={(e) => setSave(e.target.checked)}
           />
-          <span>Remember password (encrypted)</span>
+          <span>Remember {secretLabel.toLowerCase()} (encrypted)</span>
         </label>
 
         <div className="actions">

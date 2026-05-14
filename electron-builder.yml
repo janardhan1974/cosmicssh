@@ -2,8 +2,8 @@
 # Per plan.md M10: NSIS installer + portable .exe targets, code signing
 # stubbed (acquire cert later), auto-updater disabled for v1.
 
-appId: com.shriramjana.jaijak
-productName: JaiJak
+appId: com.shriramjana.cosmicssh
+productName: CosmicSSH
 copyright: Copyright © 2026 Shriram Jana
 
 directories:
@@ -22,6 +22,14 @@ files:
   - "!**/tsconfig*.json"
   - "!**/.gitkeep"
 
+# Ship the icon as a runtime resource so the BrowserWindow can find it at
+# process.resourcesPath/icon.ico in packaged builds (Windows uses the EXE-
+# embedded icon for the taskbar by default, but this lets BrowserWindow.icon
+# also resolve, e.g. for Alt-Tab thumbnails on some setups).
+extraResources:
+  - from: resources/icon.png
+    to: icon.png
+
 # Compression: 'store' = fast build, larger output. 'maximum' = slow build,
 # smallest output. Default ('normal') is a balance. For local-iteration builds
 # leave as-is; bump to 'maximum' for a release you ship widely.
@@ -37,11 +45,13 @@ win:
       arch:
         - x64
   artifactName: ${productName}-${version}-${arch}.${ext}
+  # electron-builder auto-converts a 512×512+ PNG to a multi-resolution ICO
+  # for the .exe metadata during packaging.
+  icon: resources/icon.png
   # Code signing left blank intentionally — see BUILD.md "Code signing" section.
   # When you have a cert, set:
   #   certificateFile: ./certs/codesign.pfx
   #   certificatePassword: ${env.CSC_KEY_PASSWORD}
-  # icon: resources/icon.ico  # placeholder — Electron uses default until set
 
 # Wizard installer, per-user only for v0.0.1.
 # `allowElevation: true` requires the NSIS UAC plugin (extra cache dependency
@@ -55,7 +65,7 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: JaiJak
+  shortcutName: CosmicSSH
   artifactName: ${productName}-Setup-${version}-${arch}.${ext}
 
 portable:
@@ -63,8 +73,27 @@ portable:
   # Stable temp-extraction dir so 2nd-and-later launches reuse the unpacked
   # files instead of re-extracting ~75 MB every time. First launch is still
   # slow (the extraction); every launch after is near-instant.
-  unpackDirName: jaijak
+  unpackDirName: cosmicssh
   # Default request-execution-level is "user" — no UAC prompt on launch.
+
+# ─── Linux targets (build on a Linux host with `npm run dist -- --linux`) ──
+# AppImage = single-file portable that runs on any glibc distro.
+# deb = native Debian/Ubuntu package.
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+  category: Network
+  icon: resources/icon.png
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  desktop:
+    Name: CosmicSSH
+    Comment: Personal SSH/SFTP client
+    Categories: Network;RemoteAccess;
 
 # Auto-updater wiring deferred per plan M10 ("disabled by default for v1 —
 # confirm with me before enabling"). When ready, switch this to:

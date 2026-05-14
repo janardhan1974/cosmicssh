@@ -1,13 +1,97 @@
 * { box-sizing: border-box; }
 
+/* ─── Theme tokens ─────────────────────────────────────────────────────────
+   Themes are applied via `data-theme` on <html>. Default is dark; light and
+   blue override the same set of tokens. Components reference var(--*) so the
+   whole UI re-themes by swapping the attribute. */
+:root,
+:root[data-theme="dark"] {
+  --bg:               #0f0f10;
+  --bg-panel:         #16161a;
+  --bg-sidebar:       #131317;
+  --bg-elevated:      #1a1a1f;
+  --fg:               #ffffff;
+  --fg-soft:          #b6b3ab;
+  --fg-muted:         #8a8780;
+  --fg-subtle:        #5c5853;
+  --border:           #2a2a2d;
+  --border-strong:    #3a3a3d;
+  --accent:           #d0c8b8;
+  --accent-hover:     #f0e8d4;
+  --accent-fg:        #0f0f10;
+  --error-bg:         #3a1f1f;
+  --error-fg:         #f0b8b8;
+  --error-border:     #6e3434;
+  --success:          #7a8c5c;
+  --success-bg:       #2a3a2d;
+  --warning:          #c79c64;
+  --info:             #5af0a2;
+  --shadow:           rgba(0, 0, 0, 0.5);
+  /* Tab mode colors — Terminal vs SFTP are visually distinct. */
+  --mode-terminal:    #5af0a2;       /* greenish, matches terminal icon prompt */
+  --mode-sftp:        #5d8be8;       /* blue, matches SFTP folder icon */
+}
+
+:root[data-theme="light"] {
+  --bg:               #ffffff;
+  --bg-panel:         #f4f4f6;
+  --bg-sidebar:       #fafafb;
+  --bg-elevated:      #ededf0;
+  --fg:               #000000;
+  --fg-soft:          #2e2e34;
+  --fg-muted:         #6a6f78;
+  --fg-subtle:        #a0a4ab;
+  --border:           #d8d8dc;
+  --border-strong:    #b5b5bb;
+  --accent:           #4a6fc4;
+  --accent-hover:     #3a5fb0;
+  --accent-fg:        #ffffff;
+  --error-bg:         #fcdedb;
+  --error-fg:         #9a2818;
+  --error-border:     #d49a8e;
+  --success:          #4a7a3a;
+  --success-bg:       #d5e9ce;
+  --warning:          #a06420;
+  --info:             #2a8c6c;
+  --shadow:           rgba(0, 0, 0, 0.18);
+  --mode-terminal:    #2a8c4c;
+  --mode-sftp:        #2c66b5;
+}
+
+:root[data-theme="blue"] {
+  --bg:               #eef4fa;
+  --bg-panel:         #dde9f2;
+  --bg-sidebar:       #e6eef6;
+  --bg-elevated:      #d4dfe9;
+  --fg:               #16263a;
+  --fg-soft:          #2a4060;
+  --fg-muted:         #4a6580;
+  --fg-subtle:        #8aa3bc;
+  --border:           #b5c8db;
+  --border-strong:    #92aac4;
+  --accent:           #2c66b5;
+  --accent-hover:     #1f4f95;
+  --accent-fg:        #ffffff;
+  --error-bg:         #f8d8d4;
+  --error-fg:         #9a2818;
+  --error-border:     #d49a8e;
+  --success:          #2a7a4a;
+  --success-bg:       #cce4d5;
+  --warning:          #b06820;
+  --info:             #1f6a8c;
+  --shadow:           rgba(20, 35, 60, 0.18);
+  --mode-terminal:    #2a7a4a;
+  --mode-sftp:        #1f4f95;
+}
+
 html, body, #root {
   height: 100%;
   margin: 0;
 }
 
 body {
-  background: #0f0f10;
-  color: #e8e6e3;
+  background: var(--bg);
+  color: var(--fg);
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   font-size: 14px;
   line-height: 1.5;
@@ -20,7 +104,7 @@ body {
   flex-direction: column;
 }
 
-.muted { color: #8a8780; }
+.muted { color: var(--fg-muted); }
 
 button {
   font: inherit;
@@ -42,14 +126,14 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   cursor: col-resize;
   user-select: none;
   /* visual hairline on hover */
-  border-left: 1px solid #2a2a2d;
+  border-left: 1px solid var(--border);
   border-right: 1px solid transparent;
   transition: border-color 120ms ease;
 }
 .sidebar-resize-handle:hover,
 .sidebar-resize-handle:active {
-  border-left-color: #5c5853;
-  border-right-color: #5c5853;
+  border-left-color: var(--fg-subtle);
+  border-right-color: var(--fg-subtle);
 }
 
 .main-pane {
@@ -60,8 +144,8 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 
 /* ─── Sidebar ─────────────────────────────────────────────────────────── */
 .sidebar {
-  background: #131317;
-  border-right: 1px solid #2a2a2d;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -72,13 +156,13 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   align-items: center;
   justify-content: space-between;
   padding: 10px 12px;
-  border-bottom: 1px solid #2a2a2d;
+  border-bottom: 1px solid var(--border);
 }
 .sidebar-title {
   font-size: 12px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #8a8780;
+  color: var(--fg-muted);
 }
 
 .sidebar-actions {
@@ -88,19 +172,19 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 
 .icon-btn {
   background: transparent;
-  color: #b6b3ab;
-  border: 1px solid #2a2a2d;
+  color: var(--fg-soft);
+  border: 1px solid var(--border);
   border-radius: 4px;
   padding: 3px 8px;
   font-size: 12px;
 }
 .icon-btn:hover:not(:disabled) {
-  color: #e8e6e3;
-  border-color: #5c5853;
+  color: var(--fg);
+  border-color: var(--fg-subtle);
 }
 .icon-btn.danger:hover:not(:disabled) {
-  color: #f0b8b8;
-  border-color: #6e3434;
+  color: var(--error-fg);
+  border-color: var(--error-border);
 }
 
 .sidebar-list {
@@ -112,7 +196,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .empty-state {
   padding: 16px 12px;
   font-size: 13px;
-  color: #8a8780;
+  color: var(--fg-muted);
 }
 
 .group + .group { margin-top: 4px; }
@@ -121,30 +205,90 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   background: transparent;
   border: 0;
-  color: #b6b3ab;
+  color: var(--fg-soft);
   font-size: 12px;
-  padding: 6px 12px;
+  padding: 6px 10px;
   text-align: left;
 }
-.group-header:hover { color: #e8e6e3; }
-.group-header .caret {
-  width: 10px;
-  font-size: 10px;
-  color: #5c5853;
+.group-header:hover { color: var(--fg); }
+
+/* Prominent +/− tree-toggle. Acts as the expand/collapse control for the
+   folder. Replaces the old subtle ▸/▾ caret. */
+.group-header .group-toggle {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: var(--bg);
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  transition: background-color 120ms ease;
+}
+.group-header:hover .group-toggle {
+  background: var(--accent-hover);
+}
+.group-header .group-toggle.expanded {
+  background: var(--fg-subtle);
+  color: var(--fg);
+  box-shadow: none;
+}
+.group-header:hover .group-toggle.expanded {
+  background: #7a7570;
+}
+
+.group-header .group-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+.group-header .group-name {
+  font-weight: 500;
+  letter-spacing: 0.01em;
 }
 .group-header .count {
   margin-left: auto;
   font-size: 11px;
-  color: #5c5853;
+  color: var(--fg-subtle);
+}
+
+/* Inline rename input — used in sidebar group headers and profile rows.
+   Sized to fit in-place so the row layout doesn't jump while renaming. */
+.rename-input {
+  font: inherit;
+  font-size: inherit;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--fg-subtle);
+  border-radius: 3px;
+  padding: 1px 6px;
+  outline: none;
+  width: 100%;
+  min-width: 0;
+}
+.rename-input:focus { border-color: var(--accent); }
+
+/* In rename mode the row is a plain div (not a button). Match the button
+   layout exactly so the row doesn't jump width/height while editing. */
+.group-header.rename-mode,
+.profile-row.rename-mode {
+  cursor: text;
 }
 
 .profile-list {
   list-style: none;
-  margin: 0;
+  margin: 0 0 4px 0;
   padding: 0;
+  /* Tree guide: vertical dotted line aligned with the group's folder icon. */
+  border-left: 1px dotted var(--border);
+  margin-left: 22px;
 }
 
 .profile-item {
@@ -156,15 +300,42 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .profile-row {
   flex: 1;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   background: transparent;
   border: 0;
-  color: #e8e6e3;
+  color: var(--fg);
   text-align: left;
-  padding: 6px 12px 6px 28px;
+  padding: 5px 10px 5px 14px;
   min-width: 0;
+  position: relative;
 }
-.profile-row:hover { background: #1a1a1f; }
+.profile-row:hover { background: var(--bg-elevated); }
+
+/* Horizontal tree branch from the vertical guide to each profile row. */
+.profile-row::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 8px;
+  height: 1px;
+  border-top: 1px dotted var(--border);
+}
+
+.profile-icon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.profile-icon svg { display: block; }
+
+.profile-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
 
 .profile-name {
   font-size: 13px;
@@ -174,17 +345,17 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 }
 .profile-meta {
   font-size: 11px;
-  color: #8a8780;
+  color: var(--fg-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.profile-via { color: #c79c64; }
+.profile-via { color: var(--warning); }
 
 .jump-badge {
   margin-left: 6px;
-  color: #c79c64;
+  color: var(--warning);
   font-size: 11px;
   font-weight: 500;
 }
@@ -200,8 +371,8 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 /* ─── Tab bar ─────────────────────────────────────────────────────────── */
 .tab-bar {
   display: flex;
-  background: #16161a;
-  border-bottom: 1px solid #2a2a2d;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
   overflow-x: auto;
 }
 
@@ -210,21 +381,21 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   align-items: center;
   gap: 8px;
   padding: 8px 10px 8px 14px;
-  border-right: 1px solid #2a2a2d;
+  border-right: 1px solid var(--border);
   cursor: pointer;
   font-size: 12px;
-  color: #b6b3ab;
+  color: var(--fg-soft);
   max-width: 220px;
   min-width: 0;
 }
-.tab:hover { color: #e8e6e3; background: #1a1a1f; }
+.tab:hover { color: var(--fg); background: var(--bg-elevated); }
 .tab.active {
-  background: #0f0f10;
-  color: #e8e6e3;
-  border-bottom: 2px solid #d0c8b8;
+  background: var(--bg);
+  color: var(--fg);
+  border-bottom: 2px solid var(--accent);
   margin-bottom: -1px;
 }
-.tab.closed { color: #c79c64; font-style: italic; }
+.tab.closed { color: var(--warning); font-style: italic; }
 
 .tab-label {
   white-space: nowrap;
@@ -242,34 +413,306 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 }
 .tab-close:hover {
   opacity: 1;
-  background: #2a2a2d;
+  background: var(--border);
 }
 
-/* ─── Terminal area ───────────────────────────────────────────────────── */
+/* ─── Tab mode bar (Terminal | SFTP per tab) ──────────────────────────── */
+.tab-mode-bar {
+  display: flex;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border);
+}
+.tab-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: 2px solid transparent;
+  color: var(--fg-muted);
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 4px 4px 0 0;
+}
+.tab-mode-btn:hover { color: var(--fg); }
+.tab-mode-btn.active {
+  background: var(--bg-elevated);
+  color: var(--fg);
+}
+/* Color-coded by mode: each tab type gets its own accent on the bottom
+   border + a subtle background tint when active. */
+.tab-mode-btn[data-mode="terminal"].active {
+  border-bottom-color: var(--mode-terminal);
+  box-shadow: inset 0 -1px 0 0 var(--mode-terminal);
+}
+.tab-mode-btn[data-mode="sftp"].active {
+  border-bottom-color: var(--mode-sftp);
+  box-shadow: inset 0 -1px 0 0 var(--mode-sftp);
+}
+.tab-mode-btn[data-mode="terminal"]:hover {
+  color: var(--mode-terminal);
+}
+.tab-mode-btn[data-mode="sftp"]:hover {
+  color: var(--mode-sftp);
+}
+.tab-mode-btn svg {
+  flex-shrink: 0;
+  display: block;
+}
+
+/* ─── Per-tab content area ────────────────────────────────────────────── */
 .terminal-stack {
   flex: 1;
-  position: relative;
   min-height: 0;
+}
+
+/* Single mode (default): all tab-content stacked at the same position; only
+   the active one has display: flex (set inline). */
+.terminal-stack.layout-single {
+  position: relative;
+}
+.terminal-stack.layout-single .tab-content {
+  position: absolute;
+  inset: 0;
+  flex-direction: column;
+}
+
+/* Tile-vertical: split into N columns side-by-side. */
+.terminal-stack.layout-tile-v {
+  display: flex;
+  flex-direction: row;
+}
+.terminal-stack.layout-tile-v .tab-content {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  flex-direction: column;
+  border-right: 1px solid var(--border-strong);
+}
+.terminal-stack.layout-tile-v .tab-content:last-child { border-right: none; }
+.terminal-stack.layout-tile-v .tab-active {
+  outline: 2px solid var(--mode-terminal);
+  outline-offset: -2px;
+}
+
+/* Tile-horizontal: split into N rows top-to-bottom. */
+.terminal-stack.layout-tile-h {
+  display: flex;
+  flex-direction: column;
+}
+.terminal-stack.layout-tile-h .tab-content {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  flex-direction: column;
+  border-bottom: 1px solid var(--border-strong);
+}
+.terminal-stack.layout-tile-h .tab-content:last-child { border-bottom: none; }
+.terminal-stack.layout-tile-h .tab-active {
+  outline: 2px solid var(--mode-terminal);
+  outline-offset: -2px;
+}
+
+/* In tile modes the terminal-view / sftp-view should fill their cell
+   (relative positioning, not absolute). */
+.terminal-stack.layout-tile-v .terminal-view,
+.terminal-stack.layout-tile-h .terminal-view,
+.terminal-stack.layout-tile-v .sftp-view,
+.terminal-stack.layout-tile-h .sftp-view {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  height: 100%;
 }
 
 .terminal-view {
   position: absolute;
   inset: 0;
   flex-direction: column;
-  background: #0f0f10;
+  background: var(--bg);
 }
 
 .terminal-host {
   flex: 1;
   min-height: 0;
   padding: 8px 4px 4px 8px;
-  background: #0f0f10;
+  background: var(--bg);
 }
 
 .terminal-host .xterm,
 .terminal-host .xterm-viewport,
 .terminal-host .xterm-screen {
   height: 100% !important;
+}
+
+/* ─── SFTP dual-pane ─────────────────────────────────────────────────── */
+.sftp-view {
+  display: grid;
+  /* gridTemplateColumns set inline by SftpView */
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+}
+.sftp-view.hidden { display: none; }
+
+.sftp-splitter {
+  background: transparent;
+  cursor: col-resize;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid transparent;
+  transition: border-color 120ms ease;
+}
+.sftp-splitter:hover, .sftp-splitter:active {
+  border-left-color: var(--fg-subtle);
+  border-right-color: var(--fg-subtle);
+}
+
+.sftp-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg);
+  outline: none; /* focusable for Shift+Delete; suppress browser focus ring */
+}
+
+.sftp-pane-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
+.sftp-pane-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--fg-muted);
+  margin-right: auto;
+}
+
+.sftp-path-bar {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.sftp-path-bar input {
+  width: 100%;
+  font: inherit;
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 12px;
+  padding: 5px 8px;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  outline: none;
+}
+.sftp-path-bar input:focus { border-color: var(--fg-muted); }
+
+.sftp-error {
+  margin: 8px 10px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  background: var(--error-bg);
+  color: var(--error-fg);
+  font-size: 12px;
+}
+.sftp-error-floating {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  max-width: 60%;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.sftp-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 10px;
+  background: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border);
+}
+.sftp-toolbar .icon-btn { padding: 3px 8px; }
+
+.sftp-list {
+  flex: 1;
+  overflow-y: auto;
+  font-size: 12px;
+}
+
+.sftp-row {
+  display: grid;
+  grid-template-columns: 1fr 90px 160px;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid transparent;
+}
+.sftp-row:hover { background: var(--bg-elevated); }
+.sftp-row.selected {
+  background: var(--border);
+  color: var(--fg);
+}
+.sftp-row.drag-target-row {
+  background: var(--success-bg);
+  outline: 1px dashed var(--success);
+  outline-offset: -2px;
+}
+
+.sftp-pane.drag-over-pane {
+  outline: 2px dashed var(--success);
+  outline-offset: -4px;
+}
+.sftp-row.sftp-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-panel);
+  cursor: default;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--fg-muted);
+}
+.sftp-row.sftp-head:hover { background: var(--bg-panel); }
+.sftp-row.sftp-head button {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  padding: 4px 0;
+  cursor: pointer;
+}
+.sftp-row.sftp-head button:hover { color: var(--fg); }
+
+.sftp-col-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sftp-col-size {
+  text-align: right;
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+.sftp-col-mtime {
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sftp-loading {
+  padding: 16px 10px;
+  color: var(--fg-muted);
+  font-size: 12px;
 }
 
 /* ─── Empty state (no tabs) ───────────────────────────────────────────── */
@@ -287,13 +730,13 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .empty-pane p { margin: 0 0 16px; }
 .empty-pane .primary {
   padding: 9px 16px;
-  background: #d0c8b8;
-  color: #0f0f10;
+  background: var(--accent);
+  color: var(--bg);
   border: 0;
   border-radius: 4px;
   font-weight: 500;
 }
-.empty-pane .primary:hover { background: #e0d8c8; }
+.empty-pane .primary:hover { background: var(--accent-hover); }
 
 /* ─── Modals ──────────────────────────────────────────────────────────── */
 .modal-backdrop {
@@ -306,8 +749,8 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 }
 
 .modal {
-  background: #16161a;
-  border: 1px solid #2a2a2d;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 24px 28px;
   width: 420px;
@@ -331,14 +774,14 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   flex-direction: column;
   gap: 4px;
   font-size: 12px;
-  color: #b6b3ab;
+  color: var(--fg-soft);
 }
 .modal label.checkbox {
   flex-direction: row;
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: #e8e6e3;
+  color: var(--fg);
 }
 
 .modal .row {
@@ -355,25 +798,40 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   font: inherit;
   font-size: 14px;
   padding: 7px 10px;
-  background: #0f0f10;
-  color: #e8e6e3;
-  border: 1px solid #2a2a2d;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
   border-radius: 4px;
   outline: none;
 }
 .modal input:focus,
-.modal select:focus { border-color: #8a8780; }
+.modal select:focus { border-color: var(--fg-muted); }
 .modal input:disabled,
 .modal select:disabled { opacity: 0.5; }
 
 .modal .font-preview {
   white-space: pre;
   padding: 10px 12px;
-  background: #0f0f10;
-  border: 1px solid #2a2a2d;
+  background: var(--bg);
+  border: 1px solid var(--border);
   border-radius: 4px;
-  color: #e8e6e3;
+  color: var(--fg);
   overflow-x: auto;
+}
+
+.modal .color-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.modal .color-row .color-swatch {
+  width: 44px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  cursor: pointer;
 }
 
 .modal .actions {
@@ -387,51 +845,204 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   padding: 8px 14px;
   font-size: 13px;
   border-radius: 4px;
-  border: 1px solid #2a2a2d;
+  border: 1px solid var(--border);
   background: transparent;
-  color: #e8e6e3;
+  color: var(--fg);
 }
 .modal .actions button:hover:not(:disabled) {
-  border-color: #5c5853;
+  border-color: var(--fg-subtle);
 }
 .modal .actions .primary {
-  background: #d0c8b8;
-  color: #0f0f10;
-  border-color: #d0c8b8;
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
   font-weight: 500;
 }
 .modal .actions .primary:hover:not(:disabled) {
-  background: #e0d8c8;
-  border-color: #e0d8c8;
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 .modal .actions .secondary {
-  background: #2a2a2d;
-  border-color: #2a2a2d;
+  background: var(--border);
+  border-color: var(--border);
 }
 .modal .actions .secondary:hover:not(:disabled) {
-  background: #3a3a3d;
-  border-color: #3a3a3d;
+  background: var(--border-strong);
+  border-color: var(--border-strong);
 }
 
 .modal .error {
   padding: 8px 10px;
   border-radius: 4px;
-  background: #3a1f1f;
-  color: #f0b8b8;
+  background: var(--error-bg);
+  color: var(--error-fg);
   font-size: 13px;
 }
 
 .modal .hint {
   font-size: 11px;
-  color: #8a8780;
+  color: var(--fg-muted);
   margin-top: -6px;
 }
 .modal .hint code {
-  color: #b6b3ab;
-  background: #0f0f10;
+  color: var(--fg-soft);
+  background: var(--bg);
   padding: 1px 4px;
   border-radius: 3px;
   font-size: 11px;
+}
+
+/* ─── Host-key prompt (first connect) ─────────────────────────────────── */
+.hostkey-prompt {
+  width: 480px;
+}
+.hostkey-details {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 6px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px 12px;
+  margin: 4px 0;
+}
+.hostkey-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--fg-muted);
+  align-self: center;
+}
+.hostkey-value {
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 13px;
+  color: var(--fg);
+  word-break: break-all;
+}
+.hostkey-fingerprint {
+  font-weight: 500;
+  color: var(--warning);
+}
+
+/* ─── Transfers panel ─────────────────────────────────────────────────── */
+.transfers-panel {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  width: 360px;
+  max-width: 90vw;
+  max-height: 50vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  z-index: 80;
+  font-size: 12px;
+}
+.transfers-panel.collapsed { max-height: 36px; overflow: hidden; }
+
+.transfers-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  color: var(--fg-soft);
+}
+.transfers-header:hover { color: var(--fg); }
+
+.transfers-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+}
+
+.transfer-item {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.transfer-item:last-child { border-bottom: 0; }
+.transfer-item.done { opacity: 0.6; }
+.transfer-item.error .transfer-bar-fill { background: var(--error-border); }
+
+.transfer-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.transfer-meta .arrow { color: var(--warning); font-weight: 500; }
+.transfer-meta .path {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--fg);
+}
+.transfer-meta .dismiss { padding: 1px 6px; font-size: 11px; }
+
+.transfer-bar {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.transfer-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 100ms linear;
+}
+.transfer-bar-fill.done { background: var(--success); }
+
+.transfer-stats {
+  margin-top: 4px;
+  display: flex;
+  gap: 8px;
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+.transfer-stats .err { color: var(--error-fg); }
+
+/* ─── Context menu ────────────────────────────────────────────────────── */
+.context-menu {
+  position: fixed;
+  z-index: 300;
+  min-width: 180px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  box-shadow: 0 6px 24px var(--shadow);
+  padding: 4px 0;
+  font-size: 13px;
+}
+.context-menu-item {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  color: var(--fg);
+  padding: 6px 14px;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+.context-menu-item:hover:not(:disabled) {
+  background: var(--bg-elevated);
+}
+.context-menu-item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.context-menu-item.danger {
+  color: var(--error-fg);
+}
+.context-menu-item.danger:hover:not(:disabled) {
+  background: var(--error-bg);
 }
 
 /* ─── Error toast ─────────────────────────────────────────────────────── */
@@ -440,18 +1051,18 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
-  background: #3a1f1f;
-  color: #f0b8b8;
+  background: var(--error-bg);
+  color: var(--error-fg);
   padding: 10px 16px;
   border-radius: 6px;
   font-size: 13px;
   cursor: pointer;
   max-width: 80vw;
   z-index: 200;
-  border: 1px solid #6e3434;
+  border: 1px solid var(--error-border);
 }
 .error-toast .dismiss {
-  color: #c79c64;
+  color: var(--warning);
   font-size: 11px;
   margin-left: 6px;
 }

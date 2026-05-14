@@ -1,19 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { HostKeyPrompt } from './components/HostKeyPrompt'
 import { ProfileEditor } from './components/ProfileEditor'
 import { PasswordPrompt } from './components/PasswordPrompt'
 import { Settings } from './components/Settings'
 import { Sidebar } from './components/Sidebar'
+import { SftpView } from './components/SftpView'
 import { TabBar } from './components/TabBar'
+import { TabModeBar } from './components/TabModeBar'
 import { TerminalView } from './components/TerminalView'
+import { TransfersPanel } from './components/TransfersPanel'
+import { usePlatformStore } from './stores/platform-store'
 import { useProfilesStore } from './stores/profiles-store'
 import { tabFromProfile, useSessionsStore } from './stores/sessions-store'
 import { useSettingsStore } from './stores/settings-store'
-import type { SessionProfile } from '../../shared/types'
+import { useTransfersStore } from './stores/transfers-store'
+import type { HostKeyPromptEvent, SessionProfile, TabLayout } from '../../shared/types'
 
 // Sidebar width is layout state — kept in renderer-side localStorage rather
 // than the IPC-backed settings store. No need to round-trip the main process
 // for every drag delta.
-const SIDEBAR_WIDTH_KEY = 'jaijak.sidebarWidth'
+const SIDEBAR_WIDTH_KEY = 'cosmicssh.sidebarWidth'
 const SIDEBAR_DEFAULT = 260
 const SIDEBAR_MIN = 180
 const SIDEBAR_MAX = 500
@@ -40,8 +46,12 @@ export function App() {
 
   const [editor, setEditor] = useState<EditorState>(null)
   const [passwordPrompt, setPasswordPrompt] = useState<SessionProfile | null>(null)
+  const [hostKeyPrompt, setHostKeyPrompt] = useState<HostKeyPromptEvent | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Tab tiling within this window. 'single' = original behavior (only the
+  // active tab is shown). Driven by the Window menu's "Tile Tabs …" items.
+  const [tabLayout, setTabLayout] = useState<TabLayout>('single')
   const [sidebarWidth, setSidebarWidth] = useState<number>(readSidebarWidth)
   // Mirror live width into a ref so the mouseup persistence reads the latest
   // value without re-creating the drag handler each render.
@@ -75,9 +85,44 @@ export function App() {
 
   const loadSettings = useSettingsStore((s) => s.load)
   const settingsLoaded = useSettingsStore((s) => s.loaded)
+  const theme = useSettingsStore((s) => s.terminal.theme)
+  const textColor = useSettingsStore((s) => s.terminal.textColor)
+  const loadPlatform = usePlatformStore((s) => s.load)
+  const platformLoaded = usePlatformStore((s) => s.loaded)
   useEffect(() => {
     if (!settingsLoaded) void loadSettings()
   }, [settingsLoaded, loadSettings])
+  useEffect(() => {
+    if (!platformLoaded) void loadPlatform()
+  }, [platformLoaded, loadPlatform])
+
+  // Reflect the chosen theme on <html> so the CSS [data-theme="..."] rules
+  // take effect across the entire UI.
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+  }, [theme])
+
+  // View → Settings… in the app menu (also bound to Ctrl+,) opens the
+  // existing in-app Settings modal.
+  useEffect(() => {
+    return window.api.menu.onOpenSettings(() => setShowSettings(true))
+  }, [])
+
+  // Window → Tile/Stack Tabs … menu items (Ctrl+Alt+V/H/S).
+  useEffect(() => {
+    return window.api.menu.onTabLayout((mode) => setTabLayout(mode))
+  }, [])
+
+  // User-overridden text color tweaks the --fg variable inline at the root,
+  // shadowing the theme's default for as long as it's set. Clearing the
+  // override restores the theme value.
+  useEffect(() => {
+    if (textColor) {
+      document.documentElement.style.setProperty('--fg', textColor)
+    } else {
+      document.documentElement.style.removeProperty('--fg')
+    }
+  }, [textColor])
 
   // Global subscriber: keep tab status in sync with main's lifecycle events.
   // Per-terminal close/error rendering still happens inside TerminalView.
@@ -94,29 +139,109 @@ export function App() {
     const offError = window.api.ssh.onError((evt) => {
       markClosed(evt.sessionId, `error: ${evt.message}`)
     })
+    // Host-key prompts (first-time hosts) and mismatches (potential MITM).
+    const offHostPrompt = window.api.ssh.onHostKeyPrompt((evt) => {
+      // Stack one at a time. If a second arrives while one is open it'll
+      // replace the visible prompt — fine in practice since connects are
+      // user-initiated and serial.
+      setHostKeyPrompt(evt)
+    })
+    const offHostMismatch = window.api.ssh.onHostKeyMismatch((evt) => {
+      setError(
+        `Host key mismatch for ${evt.host}:${evt.port}!\n` +
+        `Stored: ${evt.storedKeyType} ${evt.storedFingerprint}\n` +
+        `Received: ${evt.presentedKeyType} ${evt.presentedFingerprint}\n` +
+        `Connection blocked. If this is a deliberate key rotation, edit ` +
+        `%APPDATA%\\CosmicSSH\\known_hosts and remove the stored line.`,
+      )
+    })
     return () => {
       offClose()
       offError()
+      offHostPrompt()
+      offHostMismatch()
     }
   }, [markClosed])
 
-  const surface = (err: unknown) => {
-    setError(err instanceof Error ? err.message : String(err))
+  const handleHostKeyResponse = (accept: boolean) => {
+    if (!hostKeyPrompt) return
+    void window.api.ssh.respondToHostKey({
+      requestId: hostKeyPrompt.requestId,
+      accept,
+    })
+    setHostKeyPrompt(null)
   }
 
-  const handleConnectFromSidebar = async (profile: SessionProfile) => {
-    try {
-      const hasCred = await window.api.credentials.has({ profileId: profile.id })
-      if (hasCred) {
-        const result = await window.api.ssh.connectByProfile({ profileId: profile.id })
-        addTab(tabFromProfile(result.sessionId, profile))
-      } else {
-        setPasswordPrompt(profile)
-      }
-    } catch (err) {
-      surface(err)
+  // SFTP transfer events fan out to the global transfers store so the
+  // TransfersPanel can render progress/done/error from anywhere. The `started`
+  // event is the single source of truth for new entries — every transfer
+  // (single-file or one of many in a folder op) emits it from main, so callers
+  // don't have to call `beginTransfer` themselves.
+  useEffect(() => {
+    const t = useTransfersStore.getState()
+    const offStarted = window.api.sftp.onStarted((evt) => {
+      t.begin({
+        id: evt.transferId,
+        direction: evt.direction,
+        from: evt.from,
+        to: evt.to,
+        totalBytes: evt.totalBytes,
+      })
+    })
+    const offProgress = window.api.sftp.onProgress((evt) => {
+      t.progress(
+        evt.transferId,
+        evt.bytesTransferred,
+        evt.totalBytes,
+        evt.bytesPerSecond,
+      )
+    })
+    const offDone = window.api.sftp.onDone((evt) => {
+      t.done(evt.transferId)
+    })
+    const offError = window.api.sftp.onError((evt) => {
+      t.error(evt.transferId, evt.message)
+    })
+    return () => {
+      offStarted()
+      offProgress()
+      offDone()
+      offError()
     }
-  }
+  }, [])
+
+  const surface = useCallback((err: unknown) => {
+    setError(err instanceof Error ? err.message : String(err))
+  }, [])
+
+  const handleConnectFromSidebar = useCallback(
+    async (profile: SessionProfile) => {
+      try {
+        const hasCred = await window.api.credentials.has({ profileId: profile.id })
+        if (hasCred) {
+          const result = await window.api.ssh.connectByProfile({ profileId: profile.id })
+          addTab(tabFromProfile(result.sessionId, profile))
+        } else {
+          setPasswordPrompt(profile)
+        }
+      } catch (err) {
+        surface(err)
+      }
+    },
+    [addTab, surface],
+  )
+
+  // Callbacks passed to Sidebar — wrapped in useCallback so the Sidebar
+  // (React.memo'd) doesn't re-render whenever any other App-level state
+  // (passwordPrompt, hostKeyPrompt, settings, etc.) changes. With dozens of
+  // profile rows this was making the password modal's input feel laggy
+  // because the renderer was busy reconciling the sidebar tree.
+  const handleEditFromSidebar = useCallback(
+    (p: SessionProfile) => setEditor({ mode: 'edit', profile: p }),
+    [],
+  )
+  const handleNewProfile = useCallback(() => setEditor({ mode: 'create' }), [])
+  const handleOpenSettings = useCallback(() => setShowSettings(true), [])
 
   const handlePasswordSubmit = async (password: string, savePassword: boolean) => {
     const profile = passwordPrompt
@@ -171,9 +296,9 @@ export function App() {
     >
       <Sidebar
         onConnect={handleConnectFromSidebar}
-        onEdit={(p) => setEditor({ mode: 'edit', profile: p })}
-        onNewProfile={() => setEditor({ mode: 'create' })}
-        onOpenSettings={() => setShowSettings(true)}
+        onEdit={handleEditFromSidebar}
+        onNewProfile={handleNewProfile}
+        onOpenSettings={handleOpenSettings}
       />
 
       <div
@@ -184,17 +309,46 @@ export function App() {
 
       <main className="main-pane">
         <TabBar onCloseTab={handleCloseTab} />
-        <div className="terminal-stack">
+        {activeId && (
+          <TabModeBar key={activeId} sessionId={activeId} />
+        )}
+        <div className={`terminal-stack layout-${tabLayout}`}>
           {tabs.length === 0 && (
             <EmptyState onNewProfile={() => setEditor({ mode: 'create' })} />
           )}
-          {tabs.map((tab) => (
-            <TerminalView
-              key={tab.sessionId}
-              sessionId={tab.sessionId}
-              isActive={tab.sessionId === activeId}
-            />
-          ))}
+          {tabs.map((tab) => {
+            const isActive = tab.sessionId === activeId
+            const hasShell = tab.profile.protocol !== 'sftp-only'
+            // In tile modes every tab cell is visible side-by-side. In single
+            // mode only the active tab's cell is visible (display:flex/none).
+            const tiled = tabLayout !== 'single'
+            const visible = tiled || isActive
+            return (
+              <div
+                key={tab.sessionId}
+                className={`tab-content ${tab.sessionId === activeId ? 'tab-active' : ''}`}
+                style={{ display: visible ? 'flex' : 'none' }}
+              >
+                {/* Terminal stays mounted across mode switches so scrollback
+                    survives — except on SFTP-only profiles where there's no
+                    shell channel to attach to. */}
+                {hasShell && (
+                  <TerminalView
+                    sessionId={tab.sessionId}
+                    isActive={(tiled || isActive) && tab.mode === 'terminal'}
+                  />
+                )}
+                {/* SFTP mounts only when its mode is selected so the file
+                    list isn't fetched until needed. */}
+                {tab.mode === 'sftp' && (
+                  <SftpView
+                    sessionId={tab.sessionId}
+                    isActive={tiled || isActive}
+                  />
+                )}
+              </div>
+            )
+          })}
         </div>
       </main>
 
@@ -218,6 +372,15 @@ export function App() {
 
       {showSettings && <Settings onClose={() => setShowSettings(false)} />}
 
+      {hostKeyPrompt && (
+        <HostKeyPrompt
+          prompt={hostKeyPrompt}
+          onRespond={handleHostKeyResponse}
+        />
+      )}
+
+      <TransfersPanel />
+
       {error && (
         <div className="error-toast" role="alert" onClick={() => setError(null)}>
           {error}
@@ -232,7 +395,7 @@ function EmptyState({ onNewProfile }: { onNewProfile: () => void }) {
   return (
     <div className="empty-pane">
       <div>
-        <h1>JaiJak</h1>
+        <h1>CosmicSSH</h1>
         <p className="muted">
           Pick a profile in the sidebar, or
         </p>

@@ -18,7 +18,11 @@ export class SettingsStore {
   }
 
   getTerminal(): TerminalSettings {
-    return this.store.get('terminal')
+    // Merge with defaults so persisted JSON missing newer fields (e.g. older
+    // versions saved before `theme` existed) gets backfilled rather than
+    // crashing the renderer on undefined.
+    const stored = this.store.get('terminal') as Partial<TerminalSettings>
+    return { ...DEFAULT_TERMINAL_SETTINGS, ...stored }
   }
 
   setTerminal(next: TerminalSettings): TerminalSettings {

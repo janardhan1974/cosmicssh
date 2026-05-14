@@ -14,7 +14,8 @@ import type { SshCloseEvent, SshDataEvent, SshErrorEvent } from '../shared/types
 
 type Session = {
   client: Client
-  stream: ClientChannel
+  // null for sftp-only sessions — no shell channel was opened.
+  stream: ClientChannel | null
   // Jump-chain clients owned by this session. Closed in reverse order when
   // the session ends so each hop's tunnel stays open for whatever it carries.
   hops: Client[]
@@ -26,23 +27,43 @@ export type SshEventHandlers = {
   onError: (evt: SshErrorEvent) => void
 }
 
+// Verifier callback used to vet host keys against known_hosts and (when
+// unknown) to prompt the user. Resolves to true to accept, false to reject.
+// `host`/`port` are for context only — the actual check uses `keyBuffer`.
+export type HostVerifierGate = (args: {
+  host: string
+  port: number
+  keyBuffer: Buffer
+}) => Promise<boolean>
+
 type BaseConnectConfig = {
   host: string
   port: number
   username: string
-  password: string
+  // Exactly one of these is set per connect attempt. ssh2 falls back through
+  // multiple auth methods if both are present, but we keep the caller
+  // explicit so error messages stay clear.
+  password?: string
+  privateKey?: Buffer
+  passphrase?: string
   sock?: Duplex // when set, connection is tunneled over this stream
 }
 
 type SessionConnectConfig = BaseConnectConfig & {
   // Hops to close when this session closes. Order: outer→inner.
   hops?: Client[]
+  // If false, skip opening a shell channel — useful for sftp-only profiles.
+  // Defaults to true.
+  withShell?: boolean
 }
 
 export class SshSessionManager {
   private readonly sessions = new Map<string, Session>()
 
-  constructor(private readonly handlers: SshEventHandlers) {}
+  constructor(
+    private readonly handlers: SshEventHandlers,
+    private readonly hostVerifierGate: HostVerifierGate,
+  ) {}
 
   connect(config: SessionConnectConfig): Promise<string> {
     const sessionId = randomUUID()
@@ -56,7 +77,35 @@ export class SshSessionManager {
         fn()
       }
 
+      // Common cleanup when the session ends — runs on shell-channel close
+      // (ssh sessions) or on client close (sftp-only sessions).
+      const closeHops = () => {
+        const hops = config.hops ?? []
+        for (let i = hops.length - 1; i >= 0; i--) {
+          try { hops[i]?.end() } catch { /* best-effort */ }
+        }
+      }
+
       client.once('ready', () => {
+        if (config.withShell === false) {
+          // SFTP-only: skip the shell channel. Register the session with a
+          // null stream; clean up on the client's own close event since we
+          // have no stream lifecycle to hang things on.
+          this.sessions.set(sessionId, {
+            client,
+            stream: null,
+            hops: config.hops ?? [],
+          })
+          client.on('close', () => {
+            if (!this.sessions.has(sessionId)) return
+            this.sessions.delete(sessionId)
+            this.handlers.onClose({ sessionId, code: null, signal: null })
+            closeHops()
+          })
+          settle(() => resolve(sessionId))
+          return
+        }
+
         client.shell(
           { term: 'xterm-256color' },
           (err, stream) => {
@@ -83,10 +132,7 @@ export class SshSessionManager {
               client.end()
               // Tear down the jump chain in reverse — innermost hop carried
               // the actual tunnel, so close it last.
-              const hops = config.hops ?? []
-              for (let i = hops.length - 1; i >= 0; i--) {
-                try { hops[i]?.end() } catch { /* best-effort */ }
-              }
+              closeHops()
             })
 
             this.sessions.set(sessionId, {
@@ -108,21 +154,21 @@ export class SshSessionManager {
         host: config.host,
         port: config.port,
         username: config.username,
-        password: config.password,
         readyTimeout: 20_000,
         keepaliveInterval: 30_000, // plan M7 default; revisit when per-profile config lands
-        // SECURITY: host key verification is NOT wired here.
-        // Plan.md M2 implements known_hosts-style prompting. Until then, every
-        // accepted connection is logged as an explicit warning. This stub MUST
-        // be replaced before any non-localhost target.
-        hostVerifier: (_key: Buffer): boolean => {
-          // eslint-disable-next-line no-console
-          console.warn(
-            `[ssh] accepting host key for ${config.host}:${config.port} without verification (M2 TODO)`,
-          )
-          return true
+        // Async hostVerifier: defer to the injected gate which checks
+        // known_hosts and prompts the user on unknown keys.
+        hostVerifier: (key: Buffer, verify: (valid: boolean) => void) => {
+          this.hostVerifierGate({ host: config.host, port: config.port, keyBuffer: key })
+            .then((ok) => verify(ok))
+            .catch(() => verify(false))
         },
       }
+      // Set only the auth field the caller actually populated. Mixing
+      // password+key in ssh2 makes for confusing failure modes.
+      if (config.password !== undefined) connectConfig.password = config.password
+      if (config.privateKey) connectConfig.privateKey = config.privateKey
+      if (config.passphrase) connectConfig.passphrase = config.passphrase
       if (config.sock) connectConfig.sock = config.sock
 
       client.connect(connectConfig)
@@ -153,17 +199,17 @@ export class SshSessionManager {
         host: config.host,
         port: config.port,
         username: config.username,
-        password: config.password,
         readyTimeout: 20_000,
         keepaliveInterval: 30_000,
-        hostVerifier: (_key: Buffer): boolean => {
-          // eslint-disable-next-line no-console
-          console.warn(
-            `[ssh] accepting host key for jump host ${config.host}:${config.port} without verification (M2 TODO)`,
-          )
-          return true
+        hostVerifier: (key: Buffer, verify: (valid: boolean) => void) => {
+          this.hostVerifierGate({ host: config.host, port: config.port, keyBuffer: key })
+            .then((ok) => verify(ok))
+            .catch(() => verify(false))
         },
       }
+      if (config.password !== undefined) cc.password = config.password
+      if (config.privateKey) cc.privateKey = config.privateKey
+      if (config.passphrase) cc.passphrase = config.passphrase
       if (config.sock) cc.sock = config.sock
       client.connect(cc)
     })
@@ -185,15 +231,28 @@ export class SshSessionManager {
     })
   }
 
+  // Exposed so the SFTP manager can attach a sftp() subsystem to an active
+  // SSH connection. Throws if no session — caller should ensure the session
+  // is open first.
+  getClient(sessionId: string): Client {
+    const session = this.sessions.get(sessionId)
+    if (!session) throw new Error(`unknown sessionId: ${sessionId}`)
+    return session.client
+  }
+
   write(sessionId: string, data: string): void {
     const session = this.sessions.get(sessionId)
     if (!session) throw new Error(`unknown sessionId: ${sessionId}`)
+    if (!session.stream) {
+      throw new Error('session has no shell channel (SFTP-only profile)')
+    }
     session.stream.write(data)
   }
 
   resize(sessionId: string, cols: number, rows: number): void {
     const session = this.sessions.get(sessionId)
     if (!session) throw new Error(`unknown sessionId: ${sessionId}`)
+    if (!session.stream) return // no shell to resize on sftp-only sessions
     // ssh2 stream supports setWindow(rows, cols, height, width)
     session.stream.setWindow(rows, cols, 0, 0)
   }
@@ -201,7 +260,7 @@ export class SshSessionManager {
   disconnect(sessionId: string): void {
     const session = this.sessions.get(sessionId)
     if (!session) return // idempotent — already gone
-    session.stream.end()
+    if (session.stream) session.stream.end()
     session.client.end()
     this.sessions.delete(sessionId)
   }

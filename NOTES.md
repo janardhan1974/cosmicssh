@@ -161,7 +161,7 @@ Events are broadcast to all windows; the TerminalView filters by `sessionId`. Fi
 
 The plan says keytar. I asked and you confirmed safeStorage. Reasoning, recorded for later:
 - **keytar** = native node module, requires `@electron/rebuild` against Electron's Node ABI on every Electron upgrade. Backed by Windows Credential Manager (visible via `credman`).
-- **safeStorage** = built into Electron, zero rebuild. Same Windows DPAPI under the hood. We persist the ciphertext bytes ourselves (`%APPDATA%\JaiJak\credentials.json`).
+- **safeStorage** = built into Electron, zero rebuild. Same Windows DPAPI under the hood. We persist the ciphertext bytes ourselves (`%APPDATA%\CosmicSSH\credentials.json`).
 
 Same crypto class. safeStorage is the simpler win on Windows. Migration path to keytar later is straightforward — read the cleartext from safeStorage, write to keytar, delete the JSON.
 
@@ -174,7 +174,7 @@ A real fix is to bundle the preload (esbuild) into a single file with imports in
 ### File layout under `userData`
 
 ```
-%APPDATA%\JaiJak\
+%APPDATA%\CosmicSSH\
   profiles.json       (electron-store: SessionProfile[])
   credentials.json    (CredentialVault: { profileId: base64-ciphertext })
   settings.json       (electron-store: { terminal: TerminalSettings })
@@ -190,7 +190,7 @@ Sidebar resize / tab switching don't fire `window.resize`, so a `ResizeObserver`
 
 ### Sidebar width is renderer-local
 
-Tracked in `localStorage` (key `jaijak.sidebarWidth`), not via IPC + electron-store. Reasoning:
+Tracked in `localStorage` (key `cosmicssh.sidebarWidth`), not via IPC + electron-store. Reasoning:
 - Pure layout state, doesn't need to round-trip main on every drag delta.
 - Works during drag without async lag.
 - Survives restarts via Chromium's per-origin localStorage (Electron persists this under `userData`).

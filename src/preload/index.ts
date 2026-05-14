@@ -18,10 +18,32 @@ import type {
   CredentialIdPayload,
   CredentialSavePayload,
   DisconnectPayload,
+  FsEntry,
+  HostKeyMismatchEvent,
+  HostKeyPromptEvent,
+  HostKeyRespondPayload,
+  LocalDeletePayload,
+  LocalListPayload,
+  LocalListResult,
+  LocalPlatformInfo,
   ProfileDraft,
   ResizePayload,
   SessionProfile,
+  SftpCancelPayload,
+  SftpChmodPayload,
+  SftpDeletePayload,
+  SftpDownloadFolderPayload,
+  SftpDownloadPayload,
+  SftpEditOpenPayload,
+  SftpListPayload,
+  SftpMkdirPayload,
+  SftpRenamePayload,
+  SftpStatPayload,
+  SftpUploadFolderPayload,
+  SftpUploadPayload,
+  TabLayout,
   TerminalSettings,
+  TransferStartResult,
   Unsubscribe,
   WritePayload,
 } from '../shared/types'
@@ -37,11 +59,23 @@ const CH = {
   sshData: 'ssh:data',
   sshClose: 'ssh:close',
   sshError: 'ssh:error',
+  sshHostKeyPrompt: 'ssh:hostkey-prompt',
+  sshHostKeyRespond: 'ssh:hostkey-respond',
+  sshHostKeyMismatch: 'ssh:hostkey-mismatch',
+  dialogPickKey: 'dialog:pick-key',
+  menuOpenSettings: 'menu:open-settings',
+  menuTabLayout: 'menu:tab-layout',
   // profiles
   profilesList: 'profiles:list',
   profilesCreate: 'profiles:create',
   profilesUpdate: 'profiles:update',
   profilesDelete: 'profiles:delete',
+  profilesExport: 'profiles:export',
+  profilesImport: 'profiles:import',
+  // folders (empty groups)
+  foldersList: 'folders:list',
+  foldersCreate: 'folders:create',
+  foldersDelete: 'folders:delete',
   // credentials
   credentialsSave: 'credentials:save',
   credentialsHas: 'credentials:has',
@@ -49,6 +83,29 @@ const CH = {
   // settings
   settingsGet: 'settings:get',
   settingsSet: 'settings:set',
+  // sftp
+  sftpList: 'sftp:list',
+  sftpStat: 'sftp:stat',
+  sftpMkdir: 'sftp:mkdir',
+  sftpDelete: 'sftp:delete',
+  sftpRename: 'sftp:rename',
+  sftpChmod: 'sftp:chmod',
+  sftpUpload: 'sftp:upload',
+  sftpDownload: 'sftp:download',
+  sftpUploadFolder: 'sftp:upload-folder',
+  sftpDownloadFolder: 'sftp:download-folder',
+  sftpCancel: 'sftp:cancel',
+  sftpEditOpen: 'sftp:edit-open',
+  sftpStarted: 'sftp:transfer-started',
+  sftpProgress: 'sftp:transfer-progress',
+  sftpDone: 'sftp:transfer-done',
+  sftpErr: 'sftp:transfer-error',
+  // local fs
+  localList: 'local:list',
+  localHome: 'local:home',
+  localReveal: 'local:reveal',
+  localDelete: 'local:delete',
+  localPlatform: 'local:platform',
 } as const
 
 function subscribe<T>(channel: string, cb: (payload: T) => void): Unsubscribe {
@@ -72,6 +129,18 @@ const api: Api = {
     onData: (cb) => subscribe(CH.sshData, cb),
     onClose: (cb) => subscribe(CH.sshClose, cb),
     onError: (cb) => subscribe(CH.sshError, cb),
+    onHostKeyPrompt: (cb) => subscribe<HostKeyPromptEvent>(CH.sshHostKeyPrompt, cb),
+    onHostKeyMismatch: (cb) => subscribe<HostKeyMismatchEvent>(CH.sshHostKeyMismatch, cb),
+    respondToHostKey: (payload: HostKeyRespondPayload) =>
+      ipcRenderer.invoke(CH.sshHostKeyRespond, payload),
+  },
+  dialog: {
+    pickKeyFile: (): Promise<string | null> =>
+      ipcRenderer.invoke(CH.dialogPickKey),
+  },
+  menu: {
+    onOpenSettings: (cb) => subscribe<void>(CH.menuOpenSettings, () => cb()),
+    onTabLayout: (cb) => subscribe<TabLayout>(CH.menuTabLayout, cb),
   },
   profiles: {
     list: (): Promise<SessionProfile[]> => ipcRenderer.invoke(CH.profilesList),
@@ -81,6 +150,15 @@ const api: Api = {
       ipcRenderer.invoke(CH.profilesUpdate, profile),
     delete: (id: string): Promise<void> =>
       ipcRenderer.invoke(CH.profilesDelete, id),
+    exportToFile: () => ipcRenderer.invoke(CH.profilesExport),
+    importFromFile: () => ipcRenderer.invoke(CH.profilesImport),
+  },
+  folders: {
+    list: (): Promise<string[]> => ipcRenderer.invoke(CH.foldersList),
+    create: (name: string): Promise<void> =>
+      ipcRenderer.invoke(CH.foldersCreate, name),
+    delete: (name: string): Promise<void> =>
+      ipcRenderer.invoke(CH.foldersDelete, name),
   },
   credentials: {
     save: (payload: CredentialSavePayload): Promise<void> =>
@@ -94,6 +172,47 @@ const api: Api = {
     get: (): Promise<TerminalSettings> => ipcRenderer.invoke(CH.settingsGet),
     set: (s: TerminalSettings): Promise<TerminalSettings> =>
       ipcRenderer.invoke(CH.settingsSet, s),
+  },
+  sftp: {
+    list: (p: SftpListPayload): Promise<FsEntry[]> =>
+      ipcRenderer.invoke(CH.sftpList, p),
+    stat: (p: SftpStatPayload): Promise<FsEntry> =>
+      ipcRenderer.invoke(CH.sftpStat, p),
+    mkdir: (p: SftpMkdirPayload): Promise<void> =>
+      ipcRenderer.invoke(CH.sftpMkdir, p),
+    delete: (p: SftpDeletePayload): Promise<void> =>
+      ipcRenderer.invoke(CH.sftpDelete, p),
+    rename: (p: SftpRenamePayload): Promise<void> =>
+      ipcRenderer.invoke(CH.sftpRename, p),
+    chmod: (p: SftpChmodPayload): Promise<void> =>
+      ipcRenderer.invoke(CH.sftpChmod, p),
+    upload: (p: SftpUploadPayload): Promise<TransferStartResult> =>
+      ipcRenderer.invoke(CH.sftpUpload, p),
+    download: (p: SftpDownloadPayload): Promise<TransferStartResult> =>
+      ipcRenderer.invoke(CH.sftpDownload, p),
+    uploadFolder: (p: SftpUploadFolderPayload): Promise<void> =>
+      ipcRenderer.invoke(CH.sftpUploadFolder, p),
+    downloadFolder: (p: SftpDownloadFolderPayload): Promise<void> =>
+      ipcRenderer.invoke(CH.sftpDownloadFolder, p),
+    cancel: (p: SftpCancelPayload): Promise<void> =>
+      ipcRenderer.invoke(CH.sftpCancel, p),
+    editOpen: (p: SftpEditOpenPayload): Promise<void> =>
+      ipcRenderer.invoke(CH.sftpEditOpen, p),
+    onStarted: (cb) => subscribe(CH.sftpStarted, cb),
+    onProgress: (cb) => subscribe(CH.sftpProgress, cb),
+    onDone: (cb) => subscribe(CH.sftpDone, cb),
+    onError: (cb) => subscribe(CH.sftpErr, cb),
+  },
+  local: {
+    list: (p: LocalListPayload): Promise<LocalListResult> =>
+      ipcRenderer.invoke(CH.localList, p),
+    home: (): Promise<string> => ipcRenderer.invoke(CH.localHome),
+    reveal: (path: string): Promise<void> =>
+      ipcRenderer.invoke(CH.localReveal, path),
+    delete: (p: LocalDeletePayload): Promise<void> =>
+      ipcRenderer.invoke(CH.localDelete, p),
+    platform: (): Promise<LocalPlatformInfo> =>
+      ipcRenderer.invoke(CH.localPlatform),
   },
 }
 
