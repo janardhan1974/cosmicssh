@@ -1,32 +1,34 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import '@xterm/xterm/css/xterm.css'
+import { useSettingsStore } from '../stores/settings-store'
 
 type Props = {
   sessionId: string
-  meta: { host: string; username: string }
-  onDisconnect: () => void
+  isActive: boolean
 }
 
-export function TerminalView({ sessionId, meta, onDisconnect }: Props) {
+export function TerminalView({ sessionId, isActive }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
-  const [status, setStatus] = useState<'open' | 'closed'>('open')
-  const [statusDetail, setStatusDetail] = useState<string>('')
+  const fontFamily = useSettingsStore((s) => s.terminal.fontFamily)
+  const fontSize = useSettingsStore((s) => s.terminal.fontSize)
 
+  // Mount xterm once per sessionId. Stays mounted across tab switches so
+  // scrollback survives — the parent hides us with display:none when inactive.
   useEffect(() => {
     if (!hostRef.current) return
 
+    const initialSettings = useSettingsStore.getState().terminal
     const term = new Terminal({
-      // plan.md M1 note ("windowsMode: false"): xterm v6 removed `windowsMode`.
-      // The replacement (`windowsPty`) is for connecting xterm to a LOCAL Windows
-      // PTY — we never do that; our PTY is always the remote Linux shell over SSH.
-      // Leaving both options unset is the correct equivalent of the plan's intent.
-      fontFamily: '"Cascadia Mono", Consolas, "Courier New", monospace',
-      fontSize: 13,
+      // plan.md M1 note ("windowsMode: false"): xterm v6 removed it. The v6
+      // replacement (windowsPty) targets a LOCAL Windows PTY — we never do
+      // that. Default unset is the correct equivalent.
+      fontFamily: initialSettings.fontFamily,
+      fontSize: initialSettings.fontSize,
       cursorBlink: true,
       scrollback: 10_000,
       theme: {
@@ -41,40 +43,58 @@ export function TerminalView({ sessionId, meta, onDisconnect }: Props) {
     term.loadAddon(new WebLinksAddon())
     term.open(hostRef.current)
     fit.fit()
-    term.focus()
 
     termRef.current = term
     fitRef.current = fit
 
-    // Renderer → main: keystrokes
+    // Ctrl + wheel = font zoom; Ctrl + = / Ctrl + - / Ctrl + 0 (reset).
+    // Plain wheel keeps its standard scrollback behavior.
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) return
+      e.preventDefault()
+      e.stopPropagation()
+      const delta = e.deltaY > 0 ? -1 : 1
+      useSettingsStore.getState().bumpFontSize(delta)
+    }
+    hostRef.current.addEventListener('wheel', onWheel, {
+      capture: true,
+      passive: false,
+    })
+
+    term.attachCustomKeyEventHandler((e) => {
+      if (e.type !== 'keydown' || !e.ctrlKey) return true
+      if (e.key === '=' || e.key === '+') {
+        useSettingsStore.getState().bumpFontSize(+1)
+        return false
+      }
+      if (e.key === '-' || e.key === '_') {
+        useSettingsStore.getState().bumpFontSize(-1)
+        return false
+      }
+      if (e.key === '0') {
+        useSettingsStore.getState().resetFontSize()
+        return false
+      }
+      return true
+    })
+
     const dataSub = term.onData((data) => {
       void window.api.ssh.write({ sessionId, data })
     })
-    // Renderer → main: resize
     const resizeSub = term.onResize(({ cols, rows }) => {
       void window.api.ssh.resize({ sessionId, cols, rows })
     })
-    // Initial resize sync (xterm fit() may give different cols/rows than ssh2's default 80x24)
     void window.api.ssh.resize({
       sessionId,
       cols: term.cols,
       rows: term.rows,
     })
 
-    // Main → renderer: data/close/error
     const unsubData = window.api.ssh.onData((evt) => {
       if (evt.sessionId === sessionId) term.write(evt.data)
     })
     const unsubClose = window.api.ssh.onClose((evt) => {
       if (evt.sessionId !== sessionId) return
-      setStatus('closed')
-      setStatusDetail(
-        evt.code !== null
-          ? `exit code ${evt.code}`
-          : evt.signal !== null
-            ? `signal ${evt.signal}`
-            : 'connection closed',
-      )
       term.write('\r\n\x1b[33m── connection closed ──\x1b[0m\r\n')
     })
     const unsubError = window.api.ssh.onError((evt) => {
@@ -82,12 +102,19 @@ export function TerminalView({ sessionId, meta, onDisconnect }: Props) {
       term.write(`\r\n\x1b[31m── error: ${evt.message} ──\x1b[0m\r\n`)
     })
 
-    // Window resize → re-fit
     const onWindowResize = () => fit.fit()
     window.addEventListener('resize', onWindowResize)
 
+    // Sidebar resize / panel layout changes don't fire window 'resize'; observe
+    // the host container directly so xterm refits when the pane width changes.
+    const ro = new ResizeObserver(() => fit.fit())
+    ro.observe(hostRef.current)
+
+    const host = hostRef.current
     return () => {
       window.removeEventListener('resize', onWindowResize)
+      host?.removeEventListener('wheel', onWheel, { capture: true } as EventListenerOptions)
+      ro.disconnect()
       dataSub.dispose()
       resizeSub.dispose()
       unsubData()
@@ -99,27 +126,38 @@ export function TerminalView({ sessionId, meta, onDisconnect }: Props) {
     }
   }, [sessionId])
 
-  const handleDisconnect = async () => {
-    try {
-      await window.api.ssh.disconnect({ sessionId })
-    } finally {
-      onDisconnect()
-    }
-  }
+  // When this tab becomes active, refit + focus. (When inactive its container
+  // is display:none, which means xterm's measurements were stale; fit fixes.)
+  useEffect(() => {
+    if (!isActive) return
+    const fit = fitRef.current
+    const term = termRef.current
+    if (!fit || !term) return
+    // Defer to the next frame so the display:none → display:block layout has
+    // settled before we measure.
+    const id = requestAnimationFrame(() => {
+      fit.fit()
+      term.focus()
+    })
+    return () => cancelAnimationFrame(id)
+  }, [isActive])
+
+  // Apply font changes live to the xterm instance + refit (cell dimensions
+  // change so the grid needs to recompute and the SSH side needs the new size).
+  useEffect(() => {
+    const term = termRef.current
+    const fit = fitRef.current
+    if (!term || !fit) return
+    term.options.fontFamily = fontFamily
+    term.options.fontSize = fontSize
+    fit.fit()
+  }, [fontFamily, fontSize])
 
   return (
-    <div className="terminal-view">
-      <header className="terminal-header">
-        <span className="terminal-title">
-          {meta.username}@{meta.host}
-        </span>
-        <span className={`terminal-status ${status}`}>
-          {status === 'open' ? 'connected' : `closed (${statusDetail})`}
-        </span>
-        <button type="button" onClick={handleDisconnect}>
-          {status === 'open' ? 'Disconnect' : 'Close'}
-        </button>
-      </header>
+    <div
+      className="terminal-view"
+      style={{ display: isActive ? 'flex' : 'none' }}
+    >
       <div ref={hostRef} className="terminal-host" />
     </div>
   )

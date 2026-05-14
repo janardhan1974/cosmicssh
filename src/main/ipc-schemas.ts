@@ -4,11 +4,17 @@
 
 import { z } from 'zod'
 
+// ─── SSH ───────────────────────────────────────────────────────────────────
 export const ConnectPayloadSchema = z.object({
   host: z.string().min(1, 'host is required'),
   port: z.number().int().min(1).max(65535),
   username: z.string().min(1, 'username is required'),
-  password: z.string(), // empty allowed; ssh2 rejects if server requires it
+  password: z.string(),
+})
+
+export const ConnectByProfilePayloadSchema = z.object({
+  profileId: z.string().min(1),
+  passwordOverride: z.string().optional(),
 })
 
 export const WritePayloadSchema = z.object({
@@ -26,6 +32,46 @@ export const DisconnectPayloadSchema = z.object({
   sessionId: z.string().min(1),
 })
 
+// ─── Profiles ──────────────────────────────────────────────────────────────
+const AuthMethodSchema = z.enum(['password', 'key', 'agent'])
+
+export const ProfileDraftSchema = z.object({
+  name: z.string().min(1),
+  host: z.string().min(1),
+  port: z.number().int().min(1).max(65535),
+  username: z.string().min(1),
+  authMethod: AuthMethodSchema,
+  keyPath: z.string().optional(),
+  jumpHost: z.string().optional(),
+  group: z.string().optional(),
+  savePassword: z.boolean(),
+})
+
+export const SessionProfileSchema = ProfileDraftSchema.extend({
+  id: z.string().min(1),
+  createdAt: z.number().int().nonnegative(),
+  lastUsedAt: z.number().int().nonnegative().optional(),
+})
+
+export const ProfileIdSchema = z.string().min(1)
+
+// ─── Credentials ───────────────────────────────────────────────────────────
+export const CredentialSavePayloadSchema = z.object({
+  profileId: z.string().min(1),
+  password: z.string(),
+})
+
+export const CredentialIdPayloadSchema = z.object({
+  profileId: z.string().min(1),
+})
+
+// ─── Settings ─────────────────────────────────────────────────────────────
+export const TerminalSettingsSchema = z.object({
+  fontFamily: z.string().min(1),
+  fontSize: z.number().int().min(6).max(48),
+})
+
+// ─── helper ────────────────────────────────────────────────────────────────
 export function validate<T extends z.ZodTypeAny>(
   schema: T,
   raw: unknown,

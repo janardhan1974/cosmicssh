@@ -148,3 +148,64 @@ ssh2 has optional native deps (`cpu-features`, `sshcrypto.node`) for hardware-ac
 | `ssh:error` | main → renderer (event) | – | `{ sessionId, message }` |
 
 Events are broadcast to all windows; the TerminalView filters by `sessionId`. Fine for M1 (single window, single session) but will need targeted `webContents.send(specificWin, …)` when M4 introduces tabs/splits.
+
+---
+
+## M3 + M4 (combined) — profiles, credential vault, tabs
+
+### electron-store v8 (CJS), not v9+ (ESM-only)
+
+`electron-store` v9 rewrote to ESM-only, which doesn't pair with our CJS main process without dynamic `await import()` everywhere. Pinned `^8.2.0`. Same API, no functional difference for our usage.
+
+### safeStorage instead of keytar
+
+The plan says keytar. I asked and you confirmed safeStorage. Reasoning, recorded for later:
+- **keytar** = native node module, requires `@electron/rebuild` against Electron's Node ABI on every Electron upgrade. Backed by Windows Credential Manager (visible via `credman`).
+- **safeStorage** = built into Electron, zero rebuild. Same Windows DPAPI under the hood. We persist the ciphertext bytes ourselves (`%APPDATA%\TermBox\credentials.json`).
+
+Same crypto class. safeStorage is the simpler win on Windows. Migration path to keytar later is straightforward — read the cleartext from safeStorage, write to keytar, delete the JSON.
+
+### Sandboxed preload + relative require, REVISITED
+
+When M3 added `profiles:*`, `credentials:*`, `settings:*` channels, the preload again needed runtime constants from `shared/types.ts`. Sandbox still won't load that file (per M1 finding). Channel literals are duplicated in `src/preload/index.ts` under a `CH` object. **If you ever change a channel name in `shared/types.ts`, change it in `src/preload/index.ts` too** — IPC silently misses otherwise.
+
+A real fix is to bundle the preload (esbuild) into a single file with imports inlined. Held off because the duplication is bounded (~16 strings) and bundling adds a small build step. Worth doing before M2 (which adds a few more channels) if the duplication starts feeling fragile.
+
+### File layout under `userData`
+
+```
+%APPDATA%\TermBox\
+  profiles.json       (electron-store: SessionProfile[])
+  credentials.json    (CredentialVault: { profileId: base64-ciphertext })
+  settings.json       (electron-store: { terminal: TerminalSettings })
+```
+
+`profiles.json` is human-readable JSON with non-secret data only. `credentials.json` is JSON whose values are DPAPI-encrypted base64 — opaque to anyone who isn't the same Windows user.
+
+### One BrowserWindow, many tabs (concurrent SSH sessions)
+
+M4 didn't add multiple BrowserWindows — instead, one window hosts many xterm instances, one per session. Each TerminalView mounts on its tab's first appearance and stays mounted across tab switches (`display: none` toggles visibility). Scrollback survives switching because we never dispose the xterm.
+
+Sidebar resize / tab switching don't fire `window.resize`, so a `ResizeObserver` on the terminal-host triggers `FitAddon.fit()` whenever the layout changes. That refit also propagates `cols/rows` back to ssh2 via the existing `ssh:resize` IPC.
+
+### Sidebar width is renderer-local
+
+Tracked in `localStorage` (key `termbox.sidebarWidth`), not via IPC + electron-store. Reasoning:
+- Pure layout state, doesn't need to round-trip main on every drag delta.
+- Works during drag without async lag.
+- Survives restarts via Chromium's per-origin localStorage (Electron persists this under `userData`).
+
+### Settings architecture (M8 lite)
+
+Pulled forward a slice of M8 (font family/size only) when you asked for font control. Architecture is clean:
+- `TerminalSettings` type in `shared/`
+- `SettingsStore` in main wraps electron-store
+- `IPC_SETTINGS_GET / SET` channels with zod validation on SET
+- Renderer Zustand store with three actions: `setTerminal` (modal-driven, awaits IPC), `bumpFontSize` (wheel/keyboard driven, optimistic + 250ms debounced persist), `resetFontSize`.
+- TerminalView subscribes and applies `term.options.fontFamily` / `term.options.fontSize` then `fit()`.
+
+When M8 lands properly it adds theme presets, cursor style, scrollback lines — same pattern, same files.
+
+### Save & Connect validation gotcha
+
+Initial cut of `ProfileEditor` only validated "Save Password is on but no password typed" — but didn't validate the "user clicked Save & Connect with no password and Save Password off" path. Main happily errored with `"no saved password and none provided"`, which surfaced as an opaque IPC error toast. Fixed by validating in the editor (with an `await window.api.credentials.has(…)` check in edit mode so existing saved creds aren't required to re-type).
