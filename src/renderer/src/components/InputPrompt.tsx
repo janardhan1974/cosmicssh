@@ -3,6 +3,7 @@
 // onSubmit/onCancel callbacks.
 
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { ModalBackdrop } from './ModalBackdrop'
 
 type Props = {
   title: string
@@ -41,10 +42,9 @@ export function InputPrompt({
   }
 
   return (
-    <div className="modal-backdrop" onClick={onCancel}>
+    <ModalBackdrop onClose={onCancel}>
       <form
         className="modal input-prompt"
-        onClick={(e) => e.stopPropagation()}
         onSubmit={handleSubmit}
       >
         <h2>{title}</h2>
@@ -79,6 +79,6 @@ export function InputPrompt({
           <button type="submit" className="primary">{submitLabel}</button>
         </div>
       </form>
-    </div>
+    </ModalBackdrop>
   )
 }

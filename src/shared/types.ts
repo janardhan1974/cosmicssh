@@ -29,15 +29,43 @@ export const IPC_SSH_HOSTKEY_MISMATCH = 'ssh:hostkey-mismatch' as const
 // File-picker for selecting a private key on disk.
 export const IPC_DIALOG_PICK_KEY = 'dialog:pick-key' as const
 
-// App menu → renderer commands.
+// App menu → renderer commands. These channels exist for the legacy native
+// menu (now disabled — see main/index.ts:Menu.setApplicationMenu(null)) and
+// are kept in the preload contract so a future re-introduction wouldn't
+// break the type surface. The renderer's MenuBar now drives these locally.
 export const IPC_MENU_OPEN_SETTINGS = 'menu:open-settings' as const
 export const IPC_MENU_TAB_LAYOUT = 'menu:tab-layout' as const
+export const IPC_MENU_TOGGLE_SIDEBAR = 'menu:toggle-sidebar' as const
+
+// Renderer → main: actions the in-app MenuBar surfaces that need main-process
+// privileges (new BrowserWindow, devtools, OS-window tile/cascade, zoom on
+// the WebContents, full-screen, About dialog, etc.). Single dispatcher
+// channel keyed by command string — avoids one IPC per item.
+export const IPC_APP_MENU_COMMAND = 'app:menu-command' as const
+export type AppMenuCommand =
+  | 'new-window'
+  | 'tile-windows-v'
+  | 'tile-windows-h'
+  | 'cascade-windows'
+  | 'show-about'
+  | 'reload'
+  | 'force-reload'
+  | 'toggle-devtools'
+  | 'reset-zoom'
+  | 'zoom-in'
+  | 'zoom-out'
+  | 'toggle-fullscreen'
+  | 'window-minimize'
+  | 'window-close'
 
 // In-window arrangement of session tabs.
 //  - 'single' shows only the active tab (default — original behavior)
 //  - 'tile-v' splits the terminal area into N equal columns, one per tab
 //  - 'tile-h' splits into N equal rows
-export type TabLayout = 'single' | 'tile-v' | 'tile-h'
+//  - 'mdi'    each tab is a free-form floating sub-window (drag titlebar to
+//             move, drag bottom-right corner to resize, minimize to bottom
+//             strip). Floating rects are renderer-local state.
+export type TabLayout = 'single' | 'tile-v' | 'tile-h' | 'mdi'
 
 // ─── Profile channels ──────────────────────────────────────────────────────
 export const IPC_PROFILES_LIST = 'profiles:list' as const
@@ -88,6 +116,13 @@ export const IPC_LOCAL_REVEAL = 'local:reveal' as const
 export const IPC_LOCAL_DELETE = 'local:delete' as const
 export const IPC_LOCAL_PLATFORM = 'local:platform' as const
 
+// ─── Session-logging channels ─────────────────────────────────────────────
+// status:   query whether logging is on for a sessionId + where the file is
+// save:     dump pre-stripped scrollback text from the renderer into a file
+//           under <storage-dir>/sessions/
+export const IPC_LOGGING_STATUS = 'logging:status' as const
+export const IPC_LOGGING_SAVE_SCROLLBACK = 'logging:save-scrollback' as const
+
 // ─── SSH payload types ─────────────────────────────────────────────────────
 export type ConnectPayload = {
   host: string
@@ -106,6 +141,10 @@ export type ConnectByProfilePayload = {
 export type ConnectResult = {
   sessionId: string
   profileId?: string
+  // Absolute path of the session log file if logging was started for this
+  // session (profile.logSession === true). Renderer uses this to show a
+  // "● REC <path>" indicator on the tab.
+  logPath?: string
 }
 
 export type WritePayload = {
@@ -174,9 +213,12 @@ export type AuthMethod = 'password' | 'key' | 'agent'
 
 // Connection protocols supported by a profile.
 // - 'ssh': opens a shell channel + permits SFTP on demand (default).
+// - 'ssh-shell-only': opens a shell channel; the SFTP mode button is hidden.
+//   Useful when you want a terminal-only profile and don't want the SFTP
+//   pane cluttering the tab bar.
 // - 'sftp-only': opens only the SFTP subsystem; no shell, no terminal tab.
 //   Useful for hosts where shell access is disabled but SFTP is allowed.
-export type Protocol = 'ssh' | 'sftp-only'
+export type Protocol = 'ssh' | 'ssh-shell-only' | 'sftp-only'
 
 export type SessionProfile = {
   id: string // uuid
@@ -190,6 +232,19 @@ export type SessionProfile = {
   jumpHost?: string // M5 — references another profile id
   group?: string // for sidebar grouping ("Personal", "RunPod", etc.)
   savePassword: boolean // if true, on connect we persist the typed password
+  // When true, every byte of shell output (which includes echoed commands)
+  // is streamed to a file under <storage-dir>/sessions/ for the duration of
+  // each connection. ANSI escapes are stripped; line endings normalized to
+  // LF. File name: `<profile-name>_DDMMYYYY_HHMM.txt`, collision-suffixed.
+  logSession?: boolean
+  // Last directories the SFTP pane was at when this profile's session was
+  // last connected. Auto-saved on every successful SFTP navigate; restored
+  // when opening a fresh session against this profile. If the saved path is
+  // gone (remote dir deleted, local folder moved), the pane falls back to
+  // the default (home / '/'). Local-machine state — NOT included in CSV
+  // export, since the path likely won't be valid on another machine.
+  lastLocalPath?: string
+  lastRemotePath?: string
   createdAt: number // epoch ms
   lastUsedAt?: number // epoch ms; updated on successful connect
 }
@@ -218,14 +273,44 @@ export const APP_THEMES: { value: AppTheme; label: string }[] = [
   { value: 'blue', label: 'Light blue' },
 ]
 
+// Curated terminal color preset ids. 'default' means "fall back to the app
+// theme + textColor override" (the original behavior). Any other id selects
+// a full xterm palette (background + foreground + cursor + selection + 16
+// ANSI colors) from the renderer-side catalog. The string literal union
+// lives here because main needs it for the zod schema; the palette tables
+// themselves live in src/renderer/src/lib/color-schemes.ts (they depend on
+// xterm types which main shouldn't pull in).
+export type ColorSchemeId =
+  | 'default'
+  | 'solarized-dark'
+  | 'solarized-light'
+  | 'dracula'
+  | 'gruvbox-dark'
+  | 'gruvbox-light'
+  | 'nord'
+  | 'one-dark'
+  | 'monokai'
+  | 'tomorrow-night'
+  | 'github-light'
+
 export type TerminalSettings = {
   fontFamily: string
   fontSize: number
   theme: AppTheme
   // CSS color (e.g. '#e8e6e3') that overrides the theme's text color. null
   // means "use whatever the theme defines" (the common case). Applies to both
-  // the renderer chrome (--fg) and the terminal foreground.
+  // the renderer chrome (--fg) and the terminal foreground. Ignored when
+  // colorScheme is set to anything other than 'default' — the scheme owns
+  // the full palette in that case.
   textColor: string | null
+  // Terminal color preset. 'default' preserves the legacy theme + textColor
+  // pathway; any other value applies a full xterm palette.
+  colorScheme: ColorSchemeId
+  // 0..100 — lerps the resolved foreground (and cursor) toward white. 0 means
+  // "use whatever the scheme/theme/textColor produces" (no change); 100 paints
+  // text pure white. Applied on top of every other color knob so it works
+  // whether a preset is active or not.
+  brightness: number
 }
 
 export const DEFAULT_TERMINAL_SETTINGS: TerminalSettings = {
@@ -233,6 +318,8 @@ export const DEFAULT_TERMINAL_SETTINGS: TerminalSettings = {
   fontSize: 13,
   theme: 'dark',
   textColor: null,
+  colorScheme: 'default',
+  brightness: 0,
 }
 
 // ─── SFTP / file operations ───────────────────────────────────────────────
@@ -347,6 +434,25 @@ export type LocalDeletePayload = {
   isDirectory: boolean
 }
 
+// ─── Session-logging payloads ─────────────────────────────────────────────
+export type LoggingStatusPayload = { sessionId: string }
+export type LoggingStatusResult = {
+  // null = not logging for this sessionId; string = absolute path
+  logPath: string | null
+}
+
+// Renderer dumps xterm scrollback (already plain text, no ANSI) and the main
+// process writes it under <storage-dir>/sessions/. We don't pipe the buffer
+// through an OS save-dialog by default — the user already opted into the
+// "logs go to sessions/" convention.
+export type SaveScrollbackPayload = {
+  // Used only for filename generation; defaults to 'session' if blank.
+  profileName: string
+  // Whole scrollback text — xterm-rendered lines joined with '\n'.
+  text: string
+}
+export type SaveScrollbackResult = { path: string }
+
 // Platform info exposed to renderer so it can format local paths correctly
 // (separators, home placeholder text). Returned by api.local.platform().
 export type LocalPlatformInfo = {
@@ -381,6 +487,14 @@ export interface Api {
   menu: {
     onOpenSettings: (cb: () => void) => Unsubscribe
     onTabLayout: (cb: (mode: TabLayout) => void) => Unsubscribe
+    onToggleSidebar: (cb: () => void) => Unsubscribe
+  }
+  app: {
+    // Fires a menu-driven main-process action (new window, devtools,
+    // OS-window tile/cascade, zoom controls, About dialog, etc.). Resolves
+    // when the action has been kicked off — most are best-effort and don't
+    // surface a meaningful result.
+    menuCommand: (cmd: AppMenuCommand) => Promise<void>
   }
   profiles: {
     list: () => Promise<SessionProfile[]>
@@ -432,5 +546,9 @@ export interface Api {
     reveal: (path: string) => Promise<void>
     delete: (payload: LocalDeletePayload) => Promise<void>
     platform: () => Promise<LocalPlatformInfo>
+  }
+  logging: {
+    status: (payload: LoggingStatusPayload) => Promise<LoggingStatusResult>
+    saveScrollback: (payload: SaveScrollbackPayload) => Promise<SaveScrollbackResult>
   }
 }

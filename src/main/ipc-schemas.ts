@@ -34,7 +34,7 @@ export const DisconnectPayloadSchema = z.object({
 
 // ─── Profiles ──────────────────────────────────────────────────────────────
 const AuthMethodSchema = z.enum(['password', 'key', 'agent'])
-const ProtocolSchema = z.enum(['ssh', 'sftp-only'])
+const ProtocolSchema = z.enum(['ssh', 'ssh-shell-only', 'sftp-only'])
 
 export const ProfileDraftSchema = z.object({
   name: z.string().min(1),
@@ -47,6 +47,11 @@ export const ProfileDraftSchema = z.object({
   jumpHost: z.string().optional(),
   group: z.string().optional(),
   savePassword: z.boolean(),
+  logSession: z.boolean().optional(),
+  // Auto-updated by SftpPane on every navigate. Long enough for typical
+  // paths; effectively unbounded so we don't reject a deeply-nested dir.
+  lastLocalPath: z.string().max(4096).optional(),
+  lastRemotePath: z.string().max(4096).optional(),
 })
 
 export const SessionProfileSchema = ProfileDraftSchema.extend({
@@ -67,7 +72,33 @@ export const CredentialIdPayloadSchema = z.object({
   profileId: z.string().min(1),
 })
 
+// ─── App menu commands (renderer → main) ──────────────────────────────────
+// Keep this enum aligned with AppMenuCommand in src/shared/types.ts. The
+// dispatcher in main/index.ts switches on the same set; an unknown command
+// here would be a runtime no-op there anyway, but failing fast at the IPC
+// boundary is cheaper to diagnose.
+export const AppMenuCommandSchema = z.enum([
+  'new-window',
+  'tile-windows-v',
+  'tile-windows-h',
+  'cascade-windows',
+  'show-about',
+  'reload',
+  'force-reload',
+  'toggle-devtools',
+  'reset-zoom',
+  'zoom-in',
+  'zoom-out',
+  'toggle-fullscreen',
+  'window-minimize',
+  'window-close',
+])
+
 // ─── Settings ─────────────────────────────────────────────────────────────
+// Keep this enum in sync with ColorSchemeId in src/shared/types.ts and the
+// COLOR_SCHEMES catalog in src/renderer/src/lib/color-schemes.ts. Renderer
+// uses the catalog for the picker; main uses this enum to validate IPC
+// payloads. Adding a scheme means touching all three places.
 export const TerminalSettingsSchema = z.object({
   fontFamily: z.string().min(1),
   fontSize: z.number().int().min(6).max(48),
@@ -76,6 +107,20 @@ export const TerminalSettingsSchema = z.object({
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/, '#RRGGBB only')
     .nullable(),
+  colorScheme: z.enum([
+    'default',
+    'solarized-dark',
+    'solarized-light',
+    'dracula',
+    'gruvbox-dark',
+    'gruvbox-light',
+    'nord',
+    'one-dark',
+    'monokai',
+    'tomorrow-night',
+    'github-light',
+  ]),
+  brightness: z.number().min(0).max(100),
 })
 
 // ─── SFTP / Local FS ──────────────────────────────────────────────────────
@@ -155,6 +200,19 @@ export const LocalDeletePayloadSchema = z.object({
 })
 
 export const PathStringSchema = z.string().min(1)
+
+// ─── Session logging ─────────────────────────────────────────────────────
+export const LoggingStatusPayloadSchema = z.object({
+  sessionId: z.string().min(1),
+})
+
+// Cap scrollback dump at 50 MB — defensive bound against a renderer that
+// somehow tries to ship the entire universe through IPC. Real xterm
+// scrollback at 10k lines × 200 cols × 4 bytes max is ~8 MB.
+export const SaveScrollbackPayloadSchema = z.object({
+  profileName: z.string(),
+  text: z.string().max(50 * 1024 * 1024),
+})
 
 // ─── helper ────────────────────────────────────────────────────────────────
 export function validate<T extends z.ZodTypeAny>(

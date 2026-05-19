@@ -1,9 +1,19 @@
-import { app, BrowserWindow, Menu, dialog, nativeImage, screen } from 'electron'
-import type { MenuItemConstructorOptions } from 'electron'
+import { app, BrowserWindow, Menu, dialog, ipcMain, nativeImage, screen } from 'electron'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { BUILD_DATE_DISPLAY, BUILD_VERSION } from './build-info'
+import { AppMenuCommandSchema, validate } from './ipc-schemas'
 import { registerIpcHandlers } from './ipc-handlers'
+import { resolveStorageDir } from './storage-dir'
+import { IPC_APP_MENU_COMMAND, type AppMenuCommand } from '../shared/types'
+
+// Relocate userData to live next to the .exe (portable layout) BEFORE any
+// store is constructed. ProfileStore / SettingsStore / CredentialVault /
+// KnownHostsStore all derive their paths from `app.getPath('userData')`, so
+// a single setPath here moves everything in one go. Must run before
+// `registerIpcHandlers()` below since that constructs the stores. Dev mode
+// is left on the default %APPDATA% — see storage-dir.ts for why.
+app.setPath('userData', resolveStorageDir(app.getPath('userData')))
 
 const DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
 
@@ -30,6 +40,10 @@ function createWindow(): void {
     height: 800,
     show: false,
     backgroundColor: '#0f0f10',
+    // No native menu — the renderer ships its own themable menu bar via
+    // MenuBar.tsx. autoHideMenuBar:true keeps Alt from re-summoning the
+    // (now empty) OS menu strip and stealing a row of vertical space.
+    autoHideMenuBar: true,
     ...(iconPath ? { icon: iconPath } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -158,132 +172,43 @@ function cascade(): void {
   })
 }
 
-// Replace Electron's default app menu so:
-//   - View has an extra "Settings…" item that opens the in-app modal
-//   - Help has only our custom "About CosmicSSH" entry (no Learn More etc.)
-function buildAppMenu(): void {
-  const template: MenuItemConstructorOptions[] = [
-    { role: 'editMenu' },
-    {
-      label: 'View',
-      submenu: [
-        { role: 'reload' },
-        { role: 'forceReload' },
-        { role: 'toggleDevTools' },
-        { type: 'separator' },
-        { role: 'resetZoom' },
-        { role: 'zoomIn' },
-        { role: 'zoomOut' },
-        { type: 'separator' },
-        { role: 'togglefullscreen' },
-        { type: 'separator' },
-        {
-          label: 'Settings…',
-          accelerator: 'CommandOrControl+,',
-          click: (_item, focusedWindow) => {
-            // Send the message to whichever window the user is looking at.
-            // Fall back to the first window if focus is detached.
-            const target = focusedWindow ?? BrowserWindow.getAllWindows()[0]
-            target?.webContents.send('menu:open-settings')
-          },
-        },
-      ],
-    },
-    {
-      label: 'Window',
-      role: 'window',
-      submenu: [
-        {
-          label: 'New Window',
-          accelerator: 'CommandOrControl+Shift+N',
-          click: () => createWindow(),
-        },
-        { type: 'separator' },
-        // OS-window arrangement (across all open CosmicSSH windows)
-        { label: 'Tile Windows Vertically', click: tileVertically },
-        { label: 'Tile Windows Horizontally', click: tileHorizontally },
-        { label: 'Cascade Windows', click: cascade },
-        { type: 'separator' },
-        // In-window tab arrangement (within the focused window)
-        {
-          label: 'Tile Tabs Vertically',
-          accelerator: 'CommandOrControl+Alt+V',
-          click: (_item, focusedWindow) => {
-            const target = focusedWindow ?? BrowserWindow.getAllWindows()[0]
-            target?.webContents.send('menu:tab-layout', 'tile-v')
-          },
-        },
-        {
-          label: 'Tile Tabs Horizontally',
-          accelerator: 'CommandOrControl+Alt+H',
-          click: (_item, focusedWindow) => {
-            const target = focusedWindow ?? BrowserWindow.getAllWindows()[0]
-            target?.webContents.send('menu:tab-layout', 'tile-h')
-          },
-        },
-        {
-          label: 'Stack Tabs (single view)',
-          accelerator: 'CommandOrControl+Alt+S',
-          click: (_item, focusedWindow) => {
-            const target = focusedWindow ?? BrowserWindow.getAllWindows()[0]
-            target?.webContents.send('menu:tab-layout', 'single')
-          },
-        },
-        { type: 'separator' },
-        { role: 'minimize' },
-        { role: 'close' },
-      ],
-    },
-    {
-      role: 'help',
-      submenu: [
-        {
-          label: 'About CosmicSSH',
-          click: () => {
-            // Load the app icon for the dialog. Falls back to default if not
-            // found. nativeImage handles PNG natively; on Windows it also
-            // resizes appropriately for the message-box icon slot.
-            const iconPath = resolveIconPath()
-            const icon = iconPath
-              ? nativeImage.createFromPath(iconPath)
-              : undefined
+// Standalone About dialog — used to live as a Help menu item; the renderer's
+// MenuBar invokes this via the app:menu-command IPC since the native menu
+// no longer exists. Body unchanged from the old menu wiring.
+export function showAboutDialog(): void {
+  const iconPath = resolveIconPath()
+  const icon = iconPath ? nativeImage.createFromPath(iconPath) : undefined
 
-            void dialog.showMessageBox({
-              type: 'info',
-              title: 'About CosmicSSH',
-              message: 'CosmicSSH',
-              detail:
-                `Personal SSH/SFTP client for Windows · May 2026\n` +
-                `Version ${BUILD_VERSION} — built ${BUILD_DATE_DISPLAY}\n\n` +
-                `Features\n` +
-                `  • Multi-tab SSH terminals (xterm.js, 256-color)\n` +
-                `  • Dual-pane SFTP with drag-and-drop transfers\n` +
-                `  • Folder upload / download with progress + ETA\n` +
-                `  • Private-key auth (OpenSSH, with passphrase)\n` +
-                `  • Host-key verification (SHA256 fingerprints + known_hosts)\n` +
-                `  • Jump-host (ProxyJump) chains, multiple levels\n` +
-                `  • SSH-only and SFTP-only connection modes\n` +
-                `  • Multi-window with Tile / Cascade\n` +
-                `  • Session profiles in folders, F2 rename, right-click menu\n` +
-                `  • CSV import / export of sessions\n` +
-                `  • Encrypted credential storage (Windows DPAPI)\n` +
-                `  • Themes (Dark / Light / Blue), custom text color,\n` +
-                `    Ctrl+wheel font zoom\n\n` +
-                `Created by Janardhan Srinivasan\n` +
-                `Janardhan.Srinivasan@gmail.com`,
-              buttons: ['OK'],
-              noLink: true,
-              ...(icon ? { icon } : {}),
-            })
-          },
-        },
-      ],
-    },
-  ]
-  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+  void dialog.showMessageBox({
+    type: 'info',
+    title: 'About CosmicSSH',
+    message: 'CosmicSSH',
+    detail:
+      `Personal SSH/SFTP client for Windows · May 2026\n` +
+      `Version ${BUILD_VERSION} — built ${BUILD_DATE_DISPLAY}\n\n` +
+      `Features\n` +
+      `  • Multi-tab SSH terminals (xterm.js, 256-color)\n` +
+      `  • Dual-pane SFTP with drag-and-drop transfers\n` +
+      `  • Folder upload / download with progress + ETA\n` +
+      `  • Private-key auth (OpenSSH, with passphrase)\n` +
+      `  • Host-key verification (SHA256 fingerprints + known_hosts)\n` +
+      `  • Jump-host (ProxyJump) chains, multiple levels\n` +
+      `  • SSH-only and SFTP-only connection modes\n` +
+      `  • Multi-window with Tile / Cascade\n` +
+      `  • Session profiles in folders, F2 rename, right-click menu\n` +
+      `  • CSV import / export of sessions\n` +
+      `  • Encrypted credential storage (Windows DPAPI)\n` +
+      `  • Themes (Dark / Light / Blue), custom text color,\n` +
+      `    Ctrl+wheel font zoom\n\n` +
+      `Created by Janardhan Srinivasan\n` +
+      `Janardhan.Srinivasan@gmail.com`,
+    buttons: ['OK'],
+    noLink: true,
+    ...(icon ? { icon } : {}),
+  })
 }
 
-const sessionManager = registerIpcHandlers()
+const { sessions: sessionManager, logger: sessionLogger } = registerIpcHandlers()
 
 // Windows uses AppUserModelId to group taskbar entries and pick which icon
 // to show. Without this, taskbar may show electron.exe's default icon even
@@ -292,8 +217,64 @@ if (process.platform === 'win32') {
   app.setAppUserModelId('com.shriramjana.cosmicssh')
 }
 
+// Renderer → main menu dispatcher. The renderer's MenuBar calls
+// `window.api.app.menuCommand(cmd)` and we map each command to the
+// existing helpers (createWindow / tileVertically / etc.) plus the
+// per-window methods on the sender's WebContents/BrowserWindow.
+ipcMain.handle(IPC_APP_MENU_COMMAND, (event, raw) => {
+  const cmd: AppMenuCommand = validate(AppMenuCommandSchema, raw)
+  const wc = event.sender
+  const win = BrowserWindow.fromWebContents(wc)
+  switch (cmd) {
+    case 'new-window':
+      createWindow()
+      return
+    case 'tile-windows-v':
+      tileVertically()
+      return
+    case 'tile-windows-h':
+      tileHorizontally()
+      return
+    case 'cascade-windows':
+      cascade()
+      return
+    case 'show-about':
+      showAboutDialog()
+      return
+    case 'reload':
+      wc.reload()
+      return
+    case 'force-reload':
+      wc.reloadIgnoringCache()
+      return
+    case 'toggle-devtools':
+      wc.toggleDevTools()
+      return
+    case 'reset-zoom':
+      wc.setZoomLevel(0)
+      return
+    case 'zoom-in':
+      wc.setZoomLevel(wc.getZoomLevel() + 0.5)
+      return
+    case 'zoom-out':
+      wc.setZoomLevel(wc.getZoomLevel() - 0.5)
+      return
+    case 'toggle-fullscreen':
+      if (win) win.setFullScreen(!win.isFullScreen())
+      return
+    case 'window-minimize':
+      if (win) win.minimize()
+      return
+    case 'window-close':
+      if (win) win.close()
+      return
+  }
+})
+
 void app.whenReady().then(() => {
-  buildAppMenu()
+  // The renderer's MenuBar provides the menu now; remove Electron's default
+  // app menu so we don't end up with two stacked menu bars.
+  Menu.setApplicationMenu(null)
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -305,5 +286,10 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
+  // Flush + close any active session logs first so partial transcripts get
+  // their footer line on disk before the SSH disconnect tears the streams
+  // down (otherwise the very last server output might still be queued in
+  // a TCP buffer when we abort).
+  sessionLogger.closeAll()
   sessionManager.disconnectAll()
 })

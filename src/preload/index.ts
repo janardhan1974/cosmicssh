@@ -12,6 +12,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { IpcRendererEvent } from 'electron'
 import type {
   Api,
+  AppMenuCommand,
   ConnectByProfilePayload,
   ConnectPayload,
   ConnectResult,
@@ -26,8 +27,12 @@ import type {
   LocalListPayload,
   LocalListResult,
   LocalPlatformInfo,
+  LoggingStatusPayload,
+  LoggingStatusResult,
   ProfileDraft,
   ResizePayload,
+  SaveScrollbackPayload,
+  SaveScrollbackResult,
   SessionProfile,
   SftpCancelPayload,
   SftpChmodPayload,
@@ -65,6 +70,9 @@ const CH = {
   dialogPickKey: 'dialog:pick-key',
   menuOpenSettings: 'menu:open-settings',
   menuTabLayout: 'menu:tab-layout',
+  menuToggleSidebar: 'menu:toggle-sidebar',
+  // Renderer → main menu dispatcher (see shared/types.ts:IPC_APP_MENU_COMMAND).
+  appMenuCommand: 'app:menu-command',
   // profiles
   profilesList: 'profiles:list',
   profilesCreate: 'profiles:create',
@@ -106,6 +114,9 @@ const CH = {
   localReveal: 'local:reveal',
   localDelete: 'local:delete',
   localPlatform: 'local:platform',
+  // session logging
+  loggingStatus: 'logging:status',
+  loggingSaveScrollback: 'logging:save-scrollback',
 } as const
 
 function subscribe<T>(channel: string, cb: (payload: T) => void): Unsubscribe {
@@ -141,6 +152,11 @@ const api: Api = {
   menu: {
     onOpenSettings: (cb) => subscribe<void>(CH.menuOpenSettings, () => cb()),
     onTabLayout: (cb) => subscribe<TabLayout>(CH.menuTabLayout, cb),
+    onToggleSidebar: (cb) => subscribe<void>(CH.menuToggleSidebar, () => cb()),
+  },
+  app: {
+    menuCommand: (cmd: AppMenuCommand): Promise<void> =>
+      ipcRenderer.invoke(CH.appMenuCommand, cmd),
   },
   profiles: {
     list: (): Promise<SessionProfile[]> => ipcRenderer.invoke(CH.profilesList),
@@ -213,6 +229,12 @@ const api: Api = {
       ipcRenderer.invoke(CH.localDelete, p),
     platform: (): Promise<LocalPlatformInfo> =>
       ipcRenderer.invoke(CH.localPlatform),
+  },
+  logging: {
+    status: (p: LoggingStatusPayload): Promise<LoggingStatusResult> =>
+      ipcRenderer.invoke(CH.loggingStatus, p),
+    saveScrollback: (p: SaveScrollbackPayload): Promise<SaveScrollbackResult> =>
+      ipcRenderer.invoke(CH.loggingSaveScrollback, p),
   },
 }
 

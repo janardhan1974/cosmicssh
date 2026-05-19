@@ -30,6 +30,17 @@
   /* Tab mode colors — Terminal vs SFTP are visually distinct. */
   --mode-terminal:    #5af0a2;       /* greenish, matches terminal icon prompt */
   --mode-sftp:        #5d8be8;       /* blue, matches SFTP folder icon */
+  /* Per-tab accent palette — 8 colors cycled by a hash of the profile id
+     (or sessionId for ad-hoc tabs). Same colors are reused across themes;
+     they're medium-saturation so they read on both dark and light bg. */
+  --tab-c0:           #e25555;
+  --tab-c1:           #e29655;
+  --tab-c2:           #d4c244;
+  --tab-c3:           #7cb342;
+  --tab-c4:           #26a69a;
+  --tab-c5:           #5c9ce6;
+  --tab-c6:           #9c6ade;
+  --tab-c7:           #e26ec5;
 }
 
 :root[data-theme="light"] {
@@ -113,12 +124,115 @@ button {
 button:disabled { cursor: not-allowed; opacity: 0.5; }
 
 /* ─── Top-level shell ─────────────────────────────────────────────────── */
+/* Outer container that stacks the custom MenuBar above the grid. height:100%
+   so the inner .app-shell can still flex to fill what remains. */
+.app-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
 .app-shell {
   display: grid;
   /* Three columns: sidebar | resize handle | main pane.
      `grid-template-columns` is overridden inline by App with sidebarWidth. */
   grid-template-columns: 260px 4px 1fr;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ─── Custom menu bar (replaces the OS-drawn native menu) ────────────────
+   Lives at the top of .app-root. Background derives from the app theme so
+   it follows Dark / Light / Light Blue automatically — no separate setting
+   needed for "follow background". */
+.menu-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  flex-shrink: 0;
+  background: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--ui-font);
+  font-size: 12px;
+  color: var(--fg-soft);
+  user-select: none;
+}
+
+.menu-bar-slot {
+  position: relative;
+}
+
+.menu-bar-button {
+  background: transparent;
+  border: none;
+  color: inherit;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+}
+.menu-bar-button:hover {
+  background: var(--bg-elevated);
+  color: var(--fg);
+}
+.menu-bar-button.open {
+  background: var(--bg-elevated);
+  color: var(--fg);
+}
+
+.menu-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 1000;
+  min-width: 220px;
+  padding: 4px 0;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  width: 100%;
+  padding: 6px 14px;
+  background: transparent;
+  border: none;
+  color: var(--fg);
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.menu-item:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+.menu-item:disabled {
+  color: var(--fg-subtle);
+  cursor: default;
+}
+
+.menu-item-accel {
+  color: var(--fg-muted);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.menu-item:hover:not(:disabled) .menu-item-accel {
+  color: var(--accent-fg);
+  opacity: 0.85;
+}
+
+.menu-separator {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--border);
 }
 
 .sidebar-resize-handle {
@@ -149,6 +263,13 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   display: flex;
   flex-direction: column;
   min-height: 0;
+  /* Use the font configured in Settings (published as --ui-font from App.tsx).
+     Falls back to `inherit` when the variable isn't set yet (settings still
+     loading) so we never go through a flash of system-default font. The font
+     cascades to all descendants — profile rows, group headers, the +New and
+     ⚙ buttons, the rename input, the X close button — so nothing in the
+     sidebar needs to reference --ui-font directly. */
+  font-family: var(--ui-font, inherit);
 }
 
 .sidebar-header {
@@ -185,6 +306,19 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .icon-btn.danger:hover:not(:disabled) {
   color: var(--error-fg);
   border-color: var(--error-border);
+}
+
+/* Sidebar close (×). Visually lighter than the action buttons next to it —
+   it's a window-chrome affordance, not a primary action. The × glyph also
+   needs to render slightly larger and centered to look right. */
+.icon-btn.sidebar-close {
+  border-color: transparent;
+  padding: 1px 7px;
+  font-size: 16px;
+  line-height: 1;
+}
+.icon-btn.sidebar-close:hover:not(:disabled) {
+  border-color: var(--fg-subtle);
 }
 
 .sidebar-list {
@@ -395,6 +529,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 }
 
 .tab {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -405,6 +540,20 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   color: var(--fg-soft);
   max-width: 220px;
   min-width: 0;
+}
+/* Left accent stripe — color is set per-tab via the --tab-accent custom
+   property (assigned in TabBar.tsx as a hash of profile.id / sessionId).
+   Falls back to transparent if no accent is set, so ad-hoc/no-profile
+   states still render cleanly. */
+.tab::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--tab-accent, transparent);
 }
 .tab:hover { color: var(--fg); background: var(--bg-elevated); }
 .tab.active {
@@ -421,6 +570,14 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   text-overflow: ellipsis;
   min-width: 0;
 }
+/* Leading mode icon. flex-shrink:0 keeps it visible even when the label is
+   ellipsized in a narrow tab. */
+.tab-icon {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+.tab-icon svg { display: block; }
 .tab-close {
   background: transparent;
   border: 0;
@@ -433,51 +590,19 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   opacity: 1;
   background: var(--border);
 }
-
-/* ─── Tab mode bar (Terminal | SFTP per tab) ──────────────────────────── */
-.tab-mode-bar {
-  display: flex;
-  gap: 4px;
-  padding: 4px 8px;
-  background: var(--bg-sidebar);
-  border-bottom: 1px solid var(--border);
+/* ● indicator on tabs that are streaming their session to a log file. */
+.tab-rec {
+  color: #e25555;
+  font-size: 0.7em;
+  line-height: 1;
+  margin-right: 4px;
+  flex: 0 0 auto;
+  /* gentle pulse so it reads as "currently recording" not "static badge". */
+  animation: tab-rec-pulse 1.8s ease-in-out infinite;
 }
-.tab-mode-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: transparent;
-  border: 1px solid transparent;
-  border-bottom: 2px solid transparent;
-  color: var(--fg-muted);
-  font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 4px 4px 0 0;
-}
-.tab-mode-btn:hover { color: var(--fg); }
-.tab-mode-btn.active {
-  background: var(--bg-elevated);
-  color: var(--fg);
-}
-/* Color-coded by mode: each tab type gets its own accent on the bottom
-   border + a subtle background tint when active. */
-.tab-mode-btn[data-mode="terminal"].active {
-  border-bottom-color: var(--mode-terminal);
-  box-shadow: inset 0 -1px 0 0 var(--mode-terminal);
-}
-.tab-mode-btn[data-mode="sftp"].active {
-  border-bottom-color: var(--mode-sftp);
-  box-shadow: inset 0 -1px 0 0 var(--mode-sftp);
-}
-.tab-mode-btn[data-mode="terminal"]:hover {
-  color: var(--mode-terminal);
-}
-.tab-mode-btn[data-mode="sftp"]:hover {
-  color: var(--mode-sftp);
-}
-.tab-mode-btn svg {
-  flex-shrink: 0;
-  display: block;
+@keyframes tab-rec-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 /* ─── Per-tab content area ────────────────────────────────────────────── */
@@ -497,7 +622,9 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   flex-direction: column;
 }
 
-/* Tile-vertical: split into N columns side-by-side. */
+/* Tile-vertical: split into N columns side-by-side. The accent-colored bar
+   between tiles is now a real .tile-divider element (drag to redistribute
+   width); .tab-content no longer carries a border. */
 .terminal-stack.layout-tile-v {
   display: flex;
   flex-direction: row;
@@ -507,15 +634,14 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   flex: 1 1 0;
   min-width: 0;
   flex-direction: column;
-  border-right: 1px solid var(--border-strong);
 }
-.terminal-stack.layout-tile-v .tab-content:last-child { border-right: none; }
 .terminal-stack.layout-tile-v .tab-active {
   outline: 2px solid var(--mode-terminal);
   outline-offset: -2px;
 }
 
-/* Tile-horizontal: split into N rows top-to-bottom. */
+/* Tile-horizontal: split into N rows top-to-bottom. Same story as tile-v —
+   the row separator is a .tile-divider, not a CSS border. */
 .terminal-stack.layout-tile-h {
   display: flex;
   flex-direction: column;
@@ -525,12 +651,32 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   flex: 1 1 0;
   min-height: 0;
   flex-direction: column;
-  border-bottom: 1px solid var(--border-strong);
 }
-.terminal-stack.layout-tile-h .tab-content:last-child { border-bottom: none; }
 .terminal-stack.layout-tile-h .tab-active {
   outline: 2px solid var(--mode-terminal);
   outline-offset: -2px;
+}
+
+/* Draggable separator between adjacent tiles. Visually the accent-colored
+   bar; functionally a 6px-wide hit area that redistributes flex weight
+   between its two neighbours on drag. flex-basis fixes its size so it
+   doesn't grow/shrink when the tiles do. */
+.tile-divider {
+  background: var(--accent);
+  flex: 0 0 6px;
+  position: relative;
+  z-index: 1;
+}
+.tile-divider-v {
+  cursor: col-resize;
+  width: 6px;
+}
+.tile-divider-h {
+  cursor: row-resize;
+  height: 6px;
+}
+.tile-divider:hover {
+  background: var(--accent-hover);
 }
 
 /* In tile modes the terminal-view / sftp-view should fill their cell
@@ -543,6 +689,250 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   inset: auto;
   width: 100%;
   height: 100%;
+}
+
+/* ─── Per-tile header (tile-v / tile-h) ───────────────────────────────── */
+
+/* In tile modes the global TabBar is hidden; each tile owns a header that
+   travels with its pane. Styled to read as a tab (same icon, label, REC dot,
+   close button) so users see "the tab moved into the tile" rather than a new
+   piece of chrome. */
+.tile-header {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 14px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--fg-muted);
+  user-select: none;
+}
+.tile-header:hover { color: var(--fg); background: var(--bg-elevated); }
+.tile-header.active {
+  background: var(--bg);
+  color: var(--fg);
+  border-bottom: 2px solid var(--accent);
+}
+.tile-header.closed {
+  color: var(--warning);
+  font-style: italic;
+}
+
+/* ─── MDI (floating windows) layout ─────────────────────────────────────── */
+
+/* The container is the positioning context for absolute-positioned floating
+   windows. overflow:hidden prevents a half-dragged window's drop shadow from
+   bleeding past the main-pane edges (and looks tidier when the user shrinks
+   the BrowserWindow with a floating window flush against the right edge). */
+.terminal-stack.layout-mdi {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-panel);
+}
+
+/* MDI mode: each .tab-content becomes the floating window itself (position +
+   size driven by inline styles from the sessions-store rect). Border, shadow,
+   rounding, etc. live here so the chrome doesn't require an extra wrapper —
+   the FloatingChrome titlebar + resize corner are SIBLINGS of the terminal
+   content inside this same div, which is what preserves xterm scrollback
+   across layout switches (TerminalView never unmounts). */
+.terminal-stack.layout-mdi .tab-content,
+.tab-content-floating {
+  flex-direction: column;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+/* Active floating window gets the accent outline so the user can tell which
+   window the TabBar's selection targets. */
+.terminal-stack.layout-mdi .tab-content.tab-active {
+  outline: 2px solid var(--mode-terminal);
+  outline-offset: -2px;
+}
+
+/* Inside an MDI cell the embedded TerminalView / SftpView should fill the
+   space below the titlebar — same relative-flex pattern tile modes use. */
+.terminal-stack.layout-mdi .tab-content .terminal-view,
+.terminal-stack.layout-mdi .tab-content .sftp-view {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  min-height: 0;
+}
+
+.floating-window-titlebar {
+  height: 28px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 4px 0 10px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+  cursor: move;
+  user-select: none;
+  font-family: var(--ui-font);
+  font-size: 12px;
+  color: var(--fg-soft);
+}
+
+.floating-window-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.floating-window-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.floating-window-btn {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--fg-soft);
+  border: none;
+  border-radius: 3px;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+.floating-window-btn:hover {
+  background: var(--border);
+  color: var(--fg);
+}
+.floating-window-btn-close:hover {
+  background: #c0392b;
+  color: #fff;
+}
+
+/* Resize handles — 4 edges + 4 corners. Edge handles inset 6px from each end
+   so the corner handles dominate at the actual corners (corners get higher
+   z-index for the exact corner pixel). All handles sit above the terminal
+   content so they're hittable.
+   The SE corner keeps a visible diagonal-stripe affordance to hint at the
+   resize behavior; the rest are invisible but cursored. */
+.floating-window-resize {
+  position: absolute;
+  z-index: 2;
+}
+.floating-window-resize-n {
+  top: 0;
+  left: 6px;
+  right: 6px;
+  height: 6px;
+  cursor: ns-resize;
+}
+.floating-window-resize-s {
+  bottom: 0;
+  left: 6px;
+  right: 6px;
+  height: 6px;
+  cursor: ns-resize;
+}
+.floating-window-resize-e {
+  top: 6px;
+  bottom: 6px;
+  right: 0;
+  width: 6px;
+  cursor: ew-resize;
+}
+.floating-window-resize-w {
+  top: 6px;
+  bottom: 6px;
+  left: 0;
+  width: 6px;
+  cursor: ew-resize;
+}
+.floating-window-resize-nw,
+.floating-window-resize-ne,
+.floating-window-resize-sw,
+.floating-window-resize-se {
+  width: 12px;
+  height: 12px;
+  z-index: 3;
+}
+.floating-window-resize-nw {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+.floating-window-resize-ne {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+}
+.floating-window-resize-sw {
+  bottom: 0;
+  left: 0;
+  cursor: nesw-resize;
+}
+.floating-window-resize-se {
+  bottom: 0;
+  right: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  background:
+    linear-gradient(
+      135deg,
+      transparent 0%,
+      transparent 50%,
+      var(--border-strong) 50%,
+      var(--border-strong) 60%,
+      transparent 60%,
+      transparent 75%,
+      var(--border-strong) 75%,
+      var(--border-strong) 85%,
+      transparent 85%
+    );
+}
+
+/* ─── Minimized window strip ──────────────────────────────────────────── */
+
+.minimized-strip {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--bg-sidebar);
+  border-top: 1px solid var(--border);
+}
+
+.minimized-chip {
+  background: var(--bg-elevated);
+  color: var(--fg-soft);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-family: var(--ui-font);
+  font-size: 12px;
+  cursor: pointer;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.minimized-chip:hover {
+  background: var(--border);
+  color: var(--fg);
 }
 
 .terminal-view {

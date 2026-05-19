@@ -6,6 +6,7 @@
 // on subsequent connections. Rejecting (or closing) aborts the connection.
 
 import type { HostKeyPromptEvent } from '../../../shared/types'
+import { ModalBackdrop } from './ModalBackdrop'
 
 type Props = {
   prompt: HostKeyPromptEvent
@@ -14,10 +15,9 @@ type Props = {
 
 export function HostKeyPrompt({ prompt, onRespond }: Props) {
   return (
-    <div className="modal-backdrop" onClick={() => onRespond(false)}>
+    <ModalBackdrop onClose={() => onRespond(false)}>
       <div
         className="modal hostkey-prompt"
-        onClick={(e) => e.stopPropagation()}
         role="alertdialog"
         aria-modal="true"
       >
@@ -63,6 +63,6 @@ export function HostKeyPrompt({ prompt, onRespond }: Props) {
           </button>
         </div>
       </div>
-    </div>
+    </ModalBackdrop>
   )
 }

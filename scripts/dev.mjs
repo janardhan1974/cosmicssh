@@ -17,6 +17,7 @@ import { dirname, resolve } from 'node:path'
 import { setTimeout as wait } from 'node:timers/promises'
 import process from 'node:process'
 import chokidar from 'chokidar'
+import { stampBuildInfo } from './write-build-info.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const root = resolve(here, '..')
@@ -31,6 +32,7 @@ const COLORS = {
   'tsc:preload': '\x1b[35m',
   electron: '\x1b[32m',
   dev: '\x1b[34m',
+  'build-info': '\x1b[90m',
 }
 const RESET = '\x1b[0m'
 
@@ -174,3 +176,41 @@ const watcher = chokidar.watch(['dist/main', 'dist/preload'], {
 })
 watcher.on('change', scheduleRestart)
 watcher.on('add', scheduleRestart)
+
+// 6. Restamp build-info.ts on every main/preload/shared source change so
+// Help → About reflects the time of the LATEST code change, not the time
+// `npm run dev` was started. tsc:main will pick up the new build-info.ts
+// and the dist/main watcher above will trigger the Electron restart — so
+// this is purely "stamp ahead of the recompile".
+//
+// Renderer changes (src/renderer/**) are deliberately NOT watched: they use
+// Vite HMR and don't restart Electron, so a stamp would either be invisible
+// until the next main-side change, or force a restart that breaks HMR. If
+// you need About to reflect a renderer-only change, restart `npm run dev`.
+//
+// src/main/build-info.ts itself is excluded — stamping rewrites it, and
+// reacting to that event would loop forever.
+let stampPending = null
+function bumpBuildInfo() {
+  if (stampPending) clearTimeout(stampPending)
+  stampPending = setTimeout(() => {
+    stampPending = null
+    try {
+      const { buildVersion } = stampBuildInfo()
+      log('build-info', `restamped v${buildVersion}`)
+    } catch (err) {
+      log('dev', `build-info stamp failed: ${err.message}`)
+    }
+  }, 150)
+}
+const srcWatcher = chokidar.watch(
+  ['src/main/**/*.ts', 'src/preload/**/*.ts', 'src/shared/**/*.ts'],
+  {
+    cwd: root,
+    ignored: ['src/main/build-info.ts', 'src/main/build-info.d.ts'],
+    ignoreInitial: true,
+  },
+)
+srcWatcher.on('change', bumpBuildInfo)
+srcWatcher.on('add', bumpBuildInfo)
+srcWatcher.on('unlink', bumpBuildInfo)

@@ -12,6 +12,7 @@ import { CredentialVault } from './credential-vault'
 import { KnownHostsStore, parseHostKey } from './known-hosts'
 import { LocalFsManager } from './local-fs-manager'
 import { ProfileStore } from './profile-store'
+import { SessionLogger } from './session-logger'
 import { SettingsStore } from './settings-store'
 import { SftpSessionManager } from './sftp-session-manager'
 import { SshSessionManager, type HostVerifierGate } from './ssh-session-manager'
@@ -24,10 +25,12 @@ import {
   DisconnectPayloadSchema,
   LocalDeletePayloadSchema,
   LocalListPayloadSchema,
+  LoggingStatusPayloadSchema,
   PathStringSchema,
   ProfileDraftSchema,
   ProfileIdSchema,
   ResizePayloadSchema,
+  SaveScrollbackPayloadSchema,
   SessionProfileSchema,
   SftpCancelPayloadSchema,
   SftpChmodPayloadSchema,
@@ -82,6 +85,8 @@ import {
   IPC_SFTP_UPLOAD,
   IPC_SFTP_UPLOAD_FOLDER,
   IPC_DIALOG_PICK_KEY,
+  IPC_LOGGING_SAVE_SCROLLBACK,
+  IPC_LOGGING_STATUS,
   IPC_SSH_CLOSE,
   IPC_SSH_CONNECT,
   IPC_SSH_CONNECT_BY_PROFILE,
@@ -101,12 +106,16 @@ function broadcastToAll(channel: string, payload: unknown): void {
   }
 }
 
-export function registerIpcHandlers(): SshSessionManager {
+export function registerIpcHandlers(): {
+  sessions: SshSessionManager
+  logger: SessionLogger
+} {
   const profiles = new ProfileStore()
   const vault = new CredentialVault()
   const settings = new SettingsStore()
   const localFs = new LocalFsManager()
   const knownHosts = new KnownHostsStore()
+  const sessionLogger = new SessionLogger()
 
   // Pending host-key prompts. When the verifier gate sees an unknown key it
   // creates a requestId, registers a resolver here, broadcasts the prompt
@@ -169,8 +178,19 @@ export function registerIpcHandlers(): SshSessionManager {
   }
 
   const sessions = new SshSessionManager({
-    onData: (evt) => broadcastToAll(IPC_SSH_DATA, evt),
-    onClose: (evt) => broadcastToAll(IPC_SSH_CLOSE, evt),
+    // Tee every shell-data chunk into the session log if one is open for
+    // this sessionId. `append()` is a no-op when no log is active, so the
+    // overhead on non-logged sessions is one Map lookup per chunk.
+    onData: (evt) => {
+      broadcastToAll(IPC_SSH_DATA, evt)
+      sessionLogger.append(evt.sessionId, evt.data)
+    },
+    // Server hung up / network dropped — close the log too so the footer is
+    // written before the fd would otherwise leak until before-quit.
+    onClose: (evt) => {
+      broadcastToAll(IPC_SSH_CLOSE, evt)
+      sessionLogger.stop(evt.sessionId)
+    },
     onError: (evt) => broadcastToAll(IPC_SSH_ERROR, evt),
   }, hostVerifierGate)
   const sftp = new SftpSessionManager(sessions, {
@@ -362,7 +382,24 @@ export function registerIpcHandlers(): SshSessionManager {
       vault.save(profile.id, payload.passwordOverride)
     }
 
-    return { sessionId, profileId: profile.id }
+    // Start the per-session log file if the profile opts in. Skip for
+    // sftp-only profiles — there's no shell channel and so no data stream
+    // to tee. Logger failures are non-fatal: log to console, return without
+    // a logPath, and the connection proceeds normally.
+    let logPath: string | undefined
+    if (profile.logSession && profile.protocol !== 'sftp-only') {
+      try {
+        logPath = sessionLogger.start(sessionId, profile.name)
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error(
+          `[session-logger] failed to start log for ${profile.name}: ` +
+          `${err instanceof Error ? err.message : String(err)}`,
+        )
+      }
+    }
+
+    return { sessionId, profileId: profile.id, logPath }
   })
 
   // Renderer's response to a host-key prompt — resolves the awaiting verifier.
@@ -402,7 +439,23 @@ export function registerIpcHandlers(): SshSessionManager {
 
   ipcMain.handle(IPC_SSH_DISCONNECT, (_event, raw) => {
     const payload = validate(DisconnectPayloadSchema, raw)
+    // Close the log first so the footer is on disk before the SSH close
+    // event fires (which would close it again — stop() is idempotent, but
+    // ordering matters for the footer's "ended:" timestamp accuracy).
+    sessionLogger.stop(payload.sessionId)
     sessions.disconnect(payload.sessionId)
+  })
+
+  // ─── Session logging ──────────────────────────────────────────────────
+  ipcMain.handle(IPC_LOGGING_STATUS, (_event, raw) => {
+    const payload = validate(LoggingStatusPayloadSchema, raw)
+    return { logPath: sessionLogger.pathFor(payload.sessionId) }
+  })
+
+  ipcMain.handle(IPC_LOGGING_SAVE_SCROLLBACK, (_event, raw) => {
+    const payload = validate(SaveScrollbackPayloadSchema, raw)
+    const path = sessionLogger.saveScrollback(payload.profileName, payload.text)
+    return { path }
   })
 
   // ─── Profiles ──────────────────────────────────────────────────────────
@@ -532,7 +585,12 @@ export function registerIpcHandlers(): SshSessionManager {
           entry.authMethod === 'key' || entry.authMethod === 'agent'
             ? entry.authMethod
             : 'password',
-        protocol: entry.protocol === 'sftp-only' ? 'sftp-only' : 'ssh',
+        protocol:
+          entry.protocol === 'sftp-only'
+            ? 'sftp-only'
+            : entry.protocol === 'ssh-shell-only'
+              ? 'ssh-shell-only'
+              : 'ssh',
         group: entry.group ? entry.group : undefined,
         savePassword: false, // imported profiles never carry saved passwords
       }
@@ -674,7 +732,7 @@ export function registerIpcHandlers(): SshSessionManager {
 
   // Make sure the SFTP subsystem closes when the underlying SSH session does.
   // (Belt-and-suspenders — sftp also listens for client 'close' itself.)
-  return sessions
+  return { sessions, logger: sessionLogger }
 }
 
 // ─── CSV helpers ────────────────────────────────────────────────────────────

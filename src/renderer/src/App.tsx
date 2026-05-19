@@ -1,17 +1,21 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { FloatingChrome } from './components/FloatingChrome'
 import { HostKeyPrompt } from './components/HostKeyPrompt'
+import { MenuBar, type MenuDef } from './components/MenuBar'
+import { MinimizedStrip } from './components/MinimizedStrip'
 import { ProfileEditor } from './components/ProfileEditor'
 import { PasswordPrompt } from './components/PasswordPrompt'
 import { Settings } from './components/Settings'
 import { Sidebar } from './components/Sidebar'
 import { SftpView } from './components/SftpView'
 import { TabBar } from './components/TabBar'
-import { TabModeBar } from './components/TabModeBar'
 import { TerminalView } from './components/TerminalView'
+import { TileDivider } from './components/TileDivider'
+import { TileHeader } from './components/TileHeader'
 import { TransfersPanel } from './components/TransfersPanel'
 import { usePlatformStore } from './stores/platform-store'
 import { useProfilesStore } from './stores/profiles-store'
-import { tabFromProfile, useSessionsStore } from './stores/sessions-store'
+import { tabFromProfile, useSessionsStore, type Tab } from './stores/sessions-store'
 import { useSettingsStore } from './stores/settings-store'
 import { useTransfersStore } from './stores/transfers-store'
 import type { HostKeyPromptEvent, SessionProfile, TabLayout } from '../../shared/types'
@@ -20,6 +24,7 @@ import type { HostKeyPromptEvent, SessionProfile, TabLayout } from '../../shared
 // than the IPC-backed settings store. No need to round-trip the main process
 // for every drag delta.
 const SIDEBAR_WIDTH_KEY = 'cosmicssh.sidebarWidth'
+const SIDEBAR_VISIBLE_KEY = 'cosmicssh.sidebarVisible'
 const SIDEBAR_DEFAULT = 260
 const SIDEBAR_MIN = 180
 const SIDEBAR_MAX = 500
@@ -30,6 +35,12 @@ function readSidebarWidth(): number {
   const n = Number.parseInt(raw, 10)
   if (!Number.isFinite(n)) return SIDEBAR_DEFAULT
   return Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, n))
+}
+
+function readSidebarVisible(): boolean {
+  // Default visible. Only the explicit string 'false' hides it — anything
+  // else (missing key, garbage value) restores the default.
+  return localStorage.getItem(SIDEBAR_VISIBLE_KEY) !== 'false'
 }
 
 type EditorState =
@@ -55,8 +66,21 @@ export function App() {
   const [error, setError] = useState<string | null>(null)
   // Tab tiling within this window. 'single' = original behavior (only the
   // active tab is shown). Driven by the Window menu's "Tile Tabs …" items.
+  // 'mdi' switches to free-form floating sub-windows (see FloatingWindow).
   const [tabLayout, setTabLayout] = useState<TabLayout>('single')
+  // Ref on the per-tab content container. FloatingWindow uses this to clamp
+  // drag/resize gestures and to re-clamp on container resize.
+  const terminalStackRef = useRef<HTMLDivElement | null>(null)
+  // MDI-mode actions on the sessions store. ensureFloating lazy-initializes a
+  // floating rect for any tab that doesn't have one (cascade default), so a
+  // user switching to 'mdi' mid-session gets sensible starting positions.
+  const ensureFloating = useSessionsStore((s) => s.ensureFloating)
   const [sidebarWidth, setSidebarWidth] = useState<number>(readSidebarWidth)
+  // View → Sidebar (Ctrl+B) toggles this. When false the sidebar + resize
+  // handle unmount and the grid collapses to a single column. Sidebar's own
+  // internal state (collapsed groups) is reset on hide — acceptable since
+  // those expansions are usually quick to redo.
+  const [sidebarVisible, setSidebarVisible] = useState<boolean>(readSidebarVisible)
   // Mirror live width into a ref so the mouseup persistence reads the latest
   // value without re-creating the drag handler each render.
   const widthRef = useRef(sidebarWidth)
@@ -91,6 +115,7 @@ export function App() {
   const settingsLoaded = useSettingsStore((s) => s.loaded)
   const theme = useSettingsStore((s) => s.terminal.theme)
   const textColor = useSettingsStore((s) => s.terminal.textColor)
+  const fontFamily = useSettingsStore((s) => s.terminal.fontFamily)
   const loadPlatform = usePlatformStore((s) => s.load)
   const platformLoaded = usePlatformStore((s) => s.loaded)
   useEffect(() => {
@@ -112,10 +137,36 @@ export function App() {
     return window.api.menu.onOpenSettings(() => setShowSettings(true))
   }, [])
 
-  // Window → Tile/Stack Tabs … menu items (Ctrl+Alt+V/H/S).
+  // Window → Tile/Stack Tabs … menu items (Ctrl+Alt+V/H/S/F).
   useEffect(() => {
     return window.api.menu.onTabLayout((mode) => setTabLayout(mode))
   }, [])
+
+  // When in MDI mode, make sure every open tab has a floating rect. New tabs
+  // opened while in MDI need a rect too; rects survive layout switches so
+  // flipping out to 'single' and back preserves window positions.
+  useEffect(() => {
+    if (tabLayout !== 'mdi') return
+    tabs.forEach((tab, i) => ensureFloating(tab.sessionId, i))
+  }, [tabLayout, tabs, ensureFloating])
+
+  // View → Sidebar (Ctrl+B), and the X button in the sidebar header, both
+  // route through this. Persist immediately so a crash or app quit preserves
+  // the user's choice.
+  const toggleSidebar = useCallback(() => {
+    setSidebarVisible((v) => {
+      const next = !v
+      localStorage.setItem(SIDEBAR_VISIBLE_KEY, String(next))
+      return next
+    })
+  }, [])
+  const hideSidebar = useCallback(() => {
+    setSidebarVisible(false)
+    localStorage.setItem(SIDEBAR_VISIBLE_KEY, 'false')
+  }, [])
+  useEffect(() => {
+    return window.api.menu.onToggleSidebar(toggleSidebar)
+  }, [toggleSidebar])
 
   // User-overridden text color tweaks the --fg variable inline at the root,
   // shadowing the theme's default for as long as it's set. Clearing the
@@ -127,6 +178,15 @@ export function App() {
       document.documentElement.style.removeProperty('--fg')
     }
   }, [textColor])
+
+  // Publish the chosen font as a CSS variable so non-terminal chrome
+  // (sidebar, tab labels, etc.) can opt into it via `font-family: var(--ui-font)`.
+  // The terminal itself doesn't read this — xterm.js applies the font directly
+  // via its options API in TerminalView. Size is intentionally NOT propagated:
+  // bumping the terminal font (Ctrl+wheel) shouldn't reflow the sidebar.
+  useEffect(() => {
+    document.documentElement.style.setProperty('--ui-font', fontFamily)
+  }, [fontFamily])
 
   // Global subscriber: keep tab status in sync with main's lifecycle events.
   // Per-terminal close/error rendering still happens inside TerminalView.
@@ -224,7 +284,7 @@ export function App() {
         const hasCred = await window.api.credentials.has({ profileId: profile.id })
         if (hasCred) {
           const result = await window.api.ssh.connectByProfile({ profileId: profile.id })
-          addTab(tabFromProfile(result.sessionId, profile))
+          addTab(tabFromProfile(result.sessionId, profile, result.logPath))
         } else {
           setPasswordPrompt(profile)
         }
@@ -268,7 +328,7 @@ export function App() {
         // Swap into the existing (closed) tab; preserves its position + mode.
         replaceSession(reconnectInto, result.sessionId)
       } else {
-        addTab(tabFromProfile(result.sessionId, target))
+        addTab(tabFromProfile(result.sessionId, target, result.logPath))
       }
     } catch (err) {
       surface(err)
@@ -285,7 +345,7 @@ export function App() {
         profileId: saved.id,
         passwordOverride: password ?? undefined,
       })
-      addTab(tabFromProfile(result.sessionId, saved))
+      addTab(tabFromProfile(result.sessionId, saved, result.logPath))
     } catch (err) {
       surface(err)
     }
@@ -319,6 +379,16 @@ export function App() {
         surface(new Error('The original profile no longer exists.'))
         return
       }
+      // If the tab is still open (user-triggered Reconnect from the tab menu
+      // rather than from the SFTP "stale" banner), drop the live session
+      // first so we don't leak it on the server.
+      if (tab.status === 'open') {
+        try {
+          await window.api.ssh.disconnect({ sessionId: oldSessionId })
+        } catch {
+          // best-effort — proceed to reconnect regardless
+        }
+      }
       try {
         const hasCred = await window.api.credentials.has({ profileId: profile.id })
         if (!hasCred) {
@@ -335,71 +405,258 @@ export function App() {
         surface(err)
       }
     },
-    [replaceSession],
+    [replaceSession, surface],
   )
 
-  return (
-    <div
-      className="app-shell"
-      style={{ gridTemplateColumns: `${sidebarWidth}px 4px 1fr` }}
-    >
-      <Sidebar
-        onConnect={handleConnectFromSidebar}
-        onEdit={handleEditFromSidebar}
-        onNewProfile={handleNewProfile}
-        onOpenSettings={handleOpenSettings}
-      />
+  // Open a NEW tab against the same profile this tab was opened from.
+  // Lives parallel to the original — does not touch the existing session.
+  const handleCloneTab = useCallback(
+    async (sessionId: string) => {
+      const tab = useSessionsStore.getState().tabs.find((t) => t.sessionId === sessionId)
+      if (!tab) return
+      const profileId = tab.profile.id
+      if (!profileId) {
+        surface(new Error('This tab was opened ad-hoc and cannot be cloned.'))
+        return
+      }
+      const profile = useProfilesStore.getState().profiles.find((p) => p.id === profileId)
+      if (!profile) {
+        surface(new Error('The original profile no longer exists.'))
+        return
+      }
+      // Reuse the sidebar-connect path so password-prompt + DPAPI behave
+      // identically to a fresh connect.
+      await handleConnectFromSidebar(profile)
+    },
+    [handleConnectFromSidebar, surface],
+  )
 
+  // ─── Menu bar wiring ─────────────────────────────────────────────────────
+  // Renderer-local handlers wrap the existing state setters; main-side ones
+  // call the IPC dispatcher in main/index.ts. Stable refs via useCallback so
+  // the menus prop into <MenuBar> doesn't re-create every render.
+  const cmd = useCallback((c: Parameters<typeof window.api.app.menuCommand>[0]) => {
+    void window.api.app.menuCommand(c)
+  }, [])
+  // handleOpenSettings already exists (passed to Sidebar) — reused below for
+  // the View → Settings… menu item and the Ctrl+, accelerator.
+  const setLayoutSingle = useCallback(() => setTabLayout('single'), [])
+  const setLayoutTileV = useCallback(() => setTabLayout('tile-v'), [])
+  const setLayoutTileH = useCallback(() => setTabLayout('tile-h'), [])
+  const setLayoutMdi = useCallback(() => setTabLayout('mdi'), [])
+
+  const menus = useMemo<MenuDef[]>(
+    () => [
+      {
+        label: 'Edit',
+        items: [
+          // execCommand still works for cut/copy/paste in form inputs; browser
+          // handles the keyboard accelerators directly so we don't re-register
+          // them here. xterm captures Ctrl+C/V on the terminal itself.
+          { type: 'item', label: 'Cut', accelerator: 'Ctrl+X', onClick: () => document.execCommand('cut') },
+          { type: 'item', label: 'Copy', accelerator: 'Ctrl+C', onClick: () => document.execCommand('copy') },
+          { type: 'item', label: 'Paste', accelerator: 'Ctrl+V', onClick: () => document.execCommand('paste') },
+          { type: 'separator' },
+          { type: 'item', label: 'Select All', accelerator: 'Ctrl+A', onClick: () => document.execCommand('selectAll') },
+        ],
+      },
+      {
+        label: 'View',
+        items: [
+          { type: 'item', label: 'Reload', accelerator: 'Ctrl+R', onClick: () => cmd('reload') },
+          { type: 'item', label: 'Force Reload', accelerator: 'Ctrl+Shift+R', onClick: () => cmd('force-reload') },
+          { type: 'item', label: 'Toggle Developer Tools', accelerator: 'F12', onClick: () => cmd('toggle-devtools') },
+          { type: 'separator' },
+          { type: 'item', label: 'Actual Size', accelerator: 'Ctrl+0', onClick: () => cmd('reset-zoom') },
+          { type: 'item', label: 'Zoom In', accelerator: 'Ctrl++', onClick: () => cmd('zoom-in') },
+          { type: 'item', label: 'Zoom Out', accelerator: 'Ctrl+-', onClick: () => cmd('zoom-out') },
+          { type: 'separator' },
+          { type: 'item', label: 'Toggle Full Screen', accelerator: 'F11', onClick: () => cmd('toggle-fullscreen') },
+          { type: 'separator' },
+          { type: 'item', label: 'Sidebar', accelerator: 'Ctrl+B', onClick: toggleSidebar },
+          { type: 'separator' },
+          { type: 'item', label: 'Settings…', accelerator: 'Ctrl+,', onClick: handleOpenSettings },
+        ],
+      },
+      {
+        label: 'Window',
+        items: [
+          { type: 'item', label: 'New Window', accelerator: 'Ctrl+Shift+N', onClick: () => cmd('new-window') },
+          { type: 'separator' },
+          { type: 'item', label: 'Tile Windows Vertically', onClick: () => cmd('tile-windows-v') },
+          { type: 'item', label: 'Tile Windows Horizontally', onClick: () => cmd('tile-windows-h') },
+          { type: 'item', label: 'Cascade Windows', onClick: () => cmd('cascade-windows') },
+          { type: 'separator' },
+          { type: 'item', label: 'Tile Tabs Vertically', accelerator: 'Ctrl+Alt+V', onClick: setLayoutTileV },
+          { type: 'item', label: 'Tile Tabs Horizontally', accelerator: 'Ctrl+Alt+H', onClick: setLayoutTileH },
+          { type: 'item', label: 'Stack Tabs (single view)', accelerator: 'Ctrl+Alt+S', onClick: setLayoutSingle },
+          { type: 'item', label: 'Floating Windows (MDI)', accelerator: 'Ctrl+Alt+F', onClick: setLayoutMdi },
+          { type: 'separator' },
+          { type: 'item', label: 'Minimize', onClick: () => cmd('window-minimize') },
+          { type: 'item', label: 'Close', onClick: () => cmd('window-close') },
+        ],
+      },
+      {
+        label: 'Help',
+        items: [
+          { type: 'item', label: 'About CosmicSSH', onClick: () => cmd('show-about') },
+        ],
+      },
+    ],
+    [cmd, handleOpenSettings, toggleSidebar, setLayoutSingle, setLayoutTileV, setLayoutTileH, setLayoutMdi],
+  )
+
+  // Keyboard accelerators that used to fire via the native menu. Capture-phase
+  // so xterm doesn't swallow Ctrl+B / Ctrl+Alt+X as a control sequence before
+  // we see it. preventDefault on the ones we handle stops the browser default
+  // (e.g., Ctrl+R reload happens via our IPC, not Chromium's reload).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const ctrl = e.ctrlKey || e.metaKey
+      const key = e.key
+      const lower = key.toLowerCase()
+      // F-keys (no modifier needed)
+      if (key === 'F11') { e.preventDefault(); cmd('toggle-fullscreen'); return }
+      if (key === 'F12') { e.preventDefault(); cmd('toggle-devtools'); return }
+      if (!ctrl) return
+      // Ctrl+Alt+… → tab-layout commands. Order matters: check alt-bearing
+      // shortcuts BEFORE plain Ctrl+letter so Ctrl+Alt+V doesn't fall through
+      // to "no handler".
+      if (e.altKey && !e.shiftKey) {
+        if (lower === 'v') { e.preventDefault(); setLayoutTileV(); return }
+        if (lower === 'h') { e.preventDefault(); setLayoutTileH(); return }
+        if (lower === 's') { e.preventDefault(); setLayoutSingle(); return }
+        if (lower === 'f') { e.preventDefault(); setLayoutMdi(); return }
+        return
+      }
+      if (e.altKey) return // any other alt-bearing combo is not ours
+      // Ctrl(+Shift)+…
+      if (e.shiftKey) {
+        if (lower === 'n') { e.preventDefault(); cmd('new-window'); return }
+        if (lower === 'r') { e.preventDefault(); cmd('force-reload'); return }
+        return
+      }
+      // Plain Ctrl+letter / Ctrl+punctuation
+      if (lower === 'b') { e.preventDefault(); toggleSidebar(); return }
+      if (key === ',') { e.preventDefault(); handleOpenSettings(); return }
+      if (lower === 'r') { e.preventDefault(); cmd('reload'); return }
+      if (key === '0') { e.preventDefault(); cmd('reset-zoom'); return }
+      if (key === '=' || key === '+') { e.preventDefault(); cmd('zoom-in'); return }
+      if (key === '-' || key === '_') { e.preventDefault(); cmd('zoom-out'); return }
+    }
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
+  }, [cmd, handleOpenSettings, toggleSidebar, setLayoutSingle, setLayoutTileV, setLayoutTileH, setLayoutMdi])
+
+  // Chrome buttons (sidebar, tab bar, tab-mode bar) shouldn't steal keyboard
+  // focus from the xterm textarea underneath. Without this guard, clicking a
+  // tab/profile/mode button moves focus to that <button>, and the next
+  // Space/Enter is consumed by the browser's button-activation behavior
+  // instead of being sent to the SSH stream. Symptom: spacebar appears dead
+  // in the terminal until the user clicks back inside the grid — and gets
+  // worse with multiple windows because every cross-window switch tends to
+  // start with a click on chrome.
+  //
+  // `preventDefault` on mousedown blocks the focus move only; the subsequent
+  // `click` event still fires normally, so the button still does its thing.
+  // Keyboard a11y is unaffected — keyboard activation (Tab + Enter/Space)
+  // doesn't go through mousedown.
+  //
+  // Modals (.modal) and context menus (.context-menu) are deliberately
+  // excluded — their buttons SHOULD take focus so e.g. Enter on a primary
+  // action works, and Escape can dismiss.
+  const handleChromeMouseDownCapture = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement | null
+    if (!target) return
+    const button = target.closest('button')
+    if (!button) return
+    if (button.closest('.modal, .context-menu')) return
+    if (!button.closest('.sidebar, .tab-bar')) return
+    e.preventDefault()
+  }
+
+  return (
+    <div className="app-root" onMouseDownCapture={handleChromeMouseDownCapture}>
+      <MenuBar menus={menus} />
       <div
-        className="sidebar-resize-handle"
-        onMouseDown={startResize}
-        title="Drag to resize"
-      />
+        className="app-shell"
+        style={{
+          gridTemplateColumns: sidebarVisible
+            ? `${sidebarWidth}px 4px 1fr`
+            : '1fr',
+        }}
+      >
+      {sidebarVisible && (
+        <>
+          <Sidebar
+            onConnect={handleConnectFromSidebar}
+            onEdit={handleEditFromSidebar}
+            onNewProfile={handleNewProfile}
+            onOpenSettings={handleOpenSettings}
+            onHide={hideSidebar}
+          />
+
+          <div
+            className="sidebar-resize-handle"
+            onMouseDown={startResize}
+            title="Drag to resize"
+          />
+        </>
+      )}
 
       <main className="main-pane">
-        <TabBar onCloseTab={handleCloseTab} />
-        {activeId && (
-          <TabModeBar key={activeId} sessionId={activeId} />
+        {/* The global TabBar is only useful in layouts where not every tab
+            is on screen. In tile modes each tile carries its own TileHeader,
+            and in MDI each floating window has its own titlebar — showing
+            the bar above them would just duplicate every tab. */}
+        {(tabLayout === 'single' || tabLayout === 'mdi') && (
+          <TabBar
+            onCloseTab={handleCloseTab}
+            onReconnect={handleReconnectTab}
+            onClone={handleCloneTab}
+          />
         )}
-        <div className={`terminal-stack layout-${tabLayout}`}>
+        <div
+          ref={terminalStackRef}
+          className={`terminal-stack layout-${tabLayout}`}
+        >
           {tabs.length === 0 && (
             <EmptyState onNewProfile={() => setEditor({ mode: 'create' })} />
           )}
-          {tabs.map((tab) => {
-            const isActive = tab.sessionId === activeId
-            const hasShell = tab.profile.protocol !== 'sftp-only'
-            // In tile modes every tab cell is visible side-by-side. In single
-            // mode only the active tab's cell is visible (display:flex/none).
-            const tiled = tabLayout !== 'single'
-            const visible = tiled || isActive
-            return (
-              <div
+          {tabs.map((tab, i) => {
+            const cell = (
+              <TabCell
                 key={tab.sessionId}
-                className={`tab-content ${tab.sessionId === activeId ? 'tab-active' : ''}`}
-                style={{ display: visible ? 'flex' : 'none' }}
-              >
-                {/* Terminal stays mounted across mode switches so scrollback
-                    survives — except on SFTP-only profiles where there's no
-                    shell channel to attach to. */}
-                {hasShell && (
-                  <TerminalView
-                    sessionId={tab.sessionId}
-                    isActive={(tiled || isActive) && tab.mode === 'terminal'}
-                  />
-                )}
-                {/* SFTP mounts only when its mode is selected so the file
-                    list isn't fetched until needed. */}
-                {tab.mode === 'sftp' && (
-                  <SftpView
-                    sessionId={tab.sessionId}
-                    isActive={tiled || isActive}
-                    onReconnect={() => handleReconnectTab(tab.sessionId)}
-                  />
-                )}
-              </div>
+                tab={tab}
+                isActive={tab.sessionId === activeId}
+                tabLayout={tabLayout}
+                containerRef={terminalStackRef}
+                onCloseTab={handleCloseTab}
+                onReconnect={handleReconnectTab}
+              />
+            )
+            // In tile modes, drop a draggable divider between every adjacent
+            // pair so the user can redistribute the row/column. Single and
+            // MDI layouts don't get dividers — single shows one tab at a
+            // time, MDI windows are free-form.
+            const showDivider =
+              i > 0 && (tabLayout === 'tile-v' || tabLayout === 'tile-h')
+            if (!showDivider) return cell
+            const prev = tabs[i - 1]!
+            return (
+              <Fragment key={`pair-${tab.sessionId}`}>
+                <TileDivider
+                  containerRef={terminalStackRef}
+                  orientation={tabLayout === 'tile-v' ? 'v' : 'h'}
+                  aId={prev.sessionId}
+                  bId={tab.sessionId}
+                />
+                {cell}
+              </Fragment>
             )
           })}
         </div>
+        {tabLayout === 'mdi' && <MinimizedStrip />}
       </main>
 
       {editor && (
@@ -436,6 +693,132 @@ export function App() {
           {error}
           <span className="dismiss"> (click to dismiss)</span>
         </div>
+      )}
+      </div>
+    </div>
+  )
+}
+
+// Per-tab cell. ONE .tab-content div per tab, independent of layout — the
+// MDI chrome and the tile header are siblings of the terminal/SFTP content
+// inside that div, never wrappers. This is the structural invariant that
+// keeps xterm scrollback alive across layout switches: React only swaps the
+// chrome around the terminal, not the wrapper containing it, so TerminalView
+// never unmounts.
+//
+// Per-cell subscription to the floating rect means dragging one window in
+// MDI mode only re-renders that cell, not the whole tabs.map().
+type TabCellProps = {
+  tab: Tab
+  isActive: boolean
+  tabLayout: TabLayout
+  containerRef: React.RefObject<HTMLDivElement>
+  onCloseTab: (sessionId: string) => void
+  onReconnect: (sessionId: string) => void
+}
+
+function TabCell({
+  tab,
+  isActive,
+  tabLayout,
+  containerRef,
+  onCloseTab,
+  onReconnect,
+}: TabCellProps) {
+  const rect = useSessionsStore((s) => s.floating[tab.sessionId])
+  // Per-tile flex weight. Subscribed so TileDivider drags re-render only
+  // the cells that changed (this cell + its neighbour).
+  const tileWeight = useSessionsStore(
+    (s) => s.tileWeights[tab.sessionId] ?? 1,
+  )
+  const bringToFront = useSessionsStore((s) => s.bringToFront)
+  const setActive = useSessionsStore((s) => s.setActive)
+
+  const mdi = tabLayout === 'mdi'
+  const tiled = tabLayout !== 'single' && !mdi
+  const visible = mdi || tiled || isActive
+  const hasShell = tab.profile.protocol !== 'sftp-only'
+
+  // Compute the wrapping div's style based on layout. In MDI the div becomes
+  // a positioned floating box (left/top/w/h from rect, z-index for stacking,
+  // display:none while minimized). In tile mode the div is a flex cell whose
+  // share of the row/column is driven by tileWeight. In single mode only
+  // the active tab is visible.
+  const style: React.CSSProperties = mdi && rect
+    ? {
+        position: 'absolute',
+        left: rect.x,
+        top: rect.y,
+        width: rect.w,
+        height: rect.h,
+        zIndex: rect.z,
+        display: rect.minimized ? 'none' : 'flex',
+      }
+    : tiled
+      ? { display: 'flex', flex: `${tileWeight} 1 0` }
+      : { display: visible ? 'flex' : 'none' }
+
+  // In MDI, any pointerdown anywhere on the cell brings it to front and
+  // activates the tab — same UX the old FloatingWindow had.
+  const onPointerDown = mdi
+    ? () => {
+        bringToFront(tab.sessionId)
+        setActive(tab.sessionId)
+      }
+    : undefined
+
+  const className = [
+    'tab-content',
+    isActive ? 'tab-active' : '',
+    mdi ? 'tab-content-floating' : '',
+    tiled ? 'tab-content-tiled' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+  return (
+    <div
+      className={className}
+      style={style}
+      onPointerDown={onPointerDown}
+      // data-session-id lets TileDivider find this cell via DOM query at
+      // gesture start (needed to read the starting widths/heights for the
+      // weight-redistribution math). Cheap; stamped in all layouts.
+      data-session-id={tab.sessionId}
+    >
+      {/* Chrome (MDI titlebar OR tile header) renders as a sibling of inner.
+          When neither is shown (single mode) the inner takes the full cell. */}
+      {mdi && (
+        <FloatingChrome
+          sessionId={tab.sessionId}
+          title={tab.profile.name}
+          containerRef={containerRef}
+          onClose={() => onCloseTab(tab.sessionId)}
+        />
+      )}
+      {tiled && (
+        <TileHeader
+          tab={tab}
+          isActive={isActive}
+          onClose={onCloseTab}
+          onReconnect={onReconnect}
+        />
+      )}
+      {/* TerminalView stays mounted across mode switches AND layout switches —
+          its React position inside .tab-content is stable, only the chrome
+          siblings change. SFTP-only profiles skip the terminal. */}
+      {hasShell && (
+        <TerminalView
+          sessionId={tab.sessionId}
+          isActive={visible && tab.mode === 'terminal'}
+        />
+      )}
+      {tab.mode === 'sftp' && (
+        <SftpView
+          sessionId={tab.sessionId}
+          isActive={visible}
+          onReconnect={() => onReconnect(tab.sessionId)}
+        />
       )}
     </div>
   )

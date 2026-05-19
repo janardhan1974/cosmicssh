@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import type { AuthMethod, ProfileDraft, Protocol, SessionProfile } from '../../../shared/types'
 import { usePlatformStore } from '../stores/platform-store'
 import { useProfilesStore } from '../stores/profiles-store'
+import { ModalBackdrop } from './ModalBackdrop'
 
 type Props = {
   mode: 'create' | 'edit'
@@ -26,8 +27,12 @@ export function ProfileEditor({
   const [username, setUsername] = useState(initial?.username ?? '')
   const [password, setPassword] = useState('')
   const [savePassword, setSavePassword] = useState(initial?.savePassword ?? false)
+  const [logSession, setLogSession] = useState(initial?.logSession ?? false)
   const [jumpHost, setJumpHost] = useState<string>(initial?.jumpHost ?? '')
-  const [protocol, setProtocol] = useState<Protocol>(initial?.protocol ?? 'ssh')
+  // 'ssh' (shell + SFTP in one session) is back-compat only — existing saved
+  // profiles still load and connect, but the picker no longer offers it.
+  // Default for newly created profiles is 'ssh-shell-only'.
+  const [protocol, setProtocol] = useState<Protocol>(initial?.protocol ?? 'ssh-shell-only')
   const [authMethod, setAuthMethod] = useState<AuthMethod>(initial?.authMethod ?? 'password')
   const [keyPath, setKeyPath] = useState(initial?.keyPath ?? '')
   const isKey = authMethod === 'key'
@@ -106,6 +111,7 @@ export function ProfileEditor({
         group: group.trim() || undefined,
         jumpHost: jumpHost || undefined,
         savePassword,
+        logSession,
       }
 
       let saved: SessionProfile
@@ -146,10 +152,9 @@ export function ProfileEditor({
   }
 
   return (
-    <div className="modal-backdrop" onClick={onCancel}>
+    <ModalBackdrop onClose={onCancel}>
       <form
         className="modal profile-editor"
-        onClick={(e) => e.stopPropagation()}
         onSubmit={handleSubmit}
       >
         <h2>{mode === 'create' ? 'New profile' : 'Edit profile'}</h2>
@@ -173,8 +178,8 @@ export function ProfileEditor({
             onChange={(e) => setProtocol(e.target.value as Protocol)}
             disabled={busy}
           >
-            <option value="ssh">SSH (shell + SFTP)</option>
-            <option value="sftp-only">SFTP only (no shell)</option>
+            <option value="ssh-shell-only">SSH (terminal)</option>
+            <option value="sftp-only">SFTP</option>
           </select>
         </label>
 
@@ -316,6 +321,28 @@ export function ProfileEditor({
           <span>Save {isKey ? 'passphrase' : 'password'} (encrypted with Windows DPAPI)</span>
         </label>
 
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={logSession}
+            onChange={(e) => setLogSession(e.target.checked)}
+            // No shell channel = nothing to log. The checkbox stays editable
+            // so the preference is preserved if the user later switches the
+            // profile back to a shell-capable protocol.
+            disabled={busy || protocol === 'sftp-only'}
+          />
+          <span>
+            Log session to file
+            {protocol === 'sftp-only' && ' (not applicable to SFTP-only)'}
+          </span>
+        </label>
+        {logSession && protocol !== 'sftp-only' && (
+          <p className="hint muted">
+            Each connection appends to <code>&lt;exe-dir&gt;/sessions/{name.trim() || '<profile>'}_DDMMYYYY_HHMM.txt</code>.
+            ANSI escapes are stripped. Both your typed commands and the server's output are captured.
+          </p>
+        )}
+
         {error && <div className="error" role="alert">{error}</div>}
 
         <div className="actions">
@@ -342,6 +369,6 @@ export function ProfileEditor({
           )}
         </div>
       </form>
-    </div>
+    </ModalBackdrop>
   )
 }

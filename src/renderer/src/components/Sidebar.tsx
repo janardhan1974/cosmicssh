@@ -22,9 +22,12 @@ type Props = {
   onEdit: (profile: SessionProfile) => void
   onNewProfile: () => void
   onOpenSettings: () => void
+  // Hide the sidebar (X button in the header). Symmetric with View → Sidebar
+  // (Ctrl+B) — both flip the same App-level `sidebarVisible` state.
+  onHide: () => void
 }
 
-function SidebarImpl({ onConnect, onEdit, onNewProfile, onOpenSettings }: Props) {
+function SidebarImpl({ onConnect, onEdit, onNewProfile, onOpenSettings, onHide }: Props) {
   const profiles = useProfilesStore((s) => s.profiles)
   const extraFolders = useProfilesStore((s) => s.extraFolders)
   const loaded = useProfilesStore((s) => s.loaded)
@@ -243,6 +246,15 @@ function SidebarImpl({ onConnect, onEdit, onNewProfile, onOpenSettings }: Props)
             aria-label="Settings"
           >
             ⚙
+          </button>
+          <button
+            type="button"
+            className="icon-btn sidebar-close"
+            onClick={onHide}
+            title="Hide sidebar (Ctrl+B)"
+            aria-label="Hide sidebar"
+          >
+            ×
           </button>
         </div>
       </header>

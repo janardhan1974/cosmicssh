@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import type { SessionProfile } from '../../../shared/types'
+import { ModalBackdrop } from './ModalBackdrop'
 
 type Props = {
   profile: SessionProfile
@@ -20,10 +21,9 @@ export function PasswordPrompt({ profile, onCancel, onSubmit }: Props) {
   }
 
   return (
-    <div className="modal-backdrop" onClick={onCancel}>
+    <ModalBackdrop onClose={onCancel}>
       <form
         className="modal password-prompt"
-        onClick={(e) => e.stopPropagation()}
         onSubmit={handle}
       >
         <h2>{secretLabel} for {profile.name}</h2>
@@ -57,6 +57,6 @@ export function PasswordPrompt({ profile, onCancel, onSubmit }: Props) {
           <button type="submit" className="primary">Connect</button>
         </div>
       </form>
-    </div>
+    </ModalBackdrop>
   )
 }
