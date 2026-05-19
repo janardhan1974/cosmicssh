@@ -121,6 +121,10 @@ export const TerminalSettingsSchema = z.object({
     'github-light',
   ]),
   brightness: z.number().min(0).max(100),
+  sidebarBackground: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, '#RRGGBB only')
+    .nullable(),
 })
 
 // ─── SFTP / Local FS ──────────────────────────────────────────────────────

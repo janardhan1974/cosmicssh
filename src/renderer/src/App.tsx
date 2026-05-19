@@ -18,6 +18,7 @@ import { useProfilesStore } from './stores/profiles-store'
 import { tabFromProfile, useSessionsStore, type Tab } from './stores/sessions-store'
 import { useSettingsStore } from './stores/settings-store'
 import { useTransfersStore } from './stores/transfers-store'
+import { getEffectiveTerminalBg } from './lib/color-schemes'
 import type { HostKeyPromptEvent, SessionProfile, TabLayout } from '../../shared/types'
 
 // Sidebar width is layout state — kept in renderer-side localStorage rather
@@ -116,6 +117,8 @@ export function App() {
   const theme = useSettingsStore((s) => s.terminal.theme)
   const textColor = useSettingsStore((s) => s.terminal.textColor)
   const fontFamily = useSettingsStore((s) => s.terminal.fontFamily)
+  const colorScheme = useSettingsStore((s) => s.terminal.colorScheme)
+  const sidebarBackground = useSettingsStore((s) => s.terminal.sidebarBackground)
   const loadPlatform = usePlatformStore((s) => s.load)
   const platformLoaded = usePlatformStore((s) => s.loaded)
   useEffect(() => {
@@ -187,6 +190,27 @@ export function App() {
   useEffect(() => {
     document.documentElement.style.setProperty('--ui-font', fontFamily)
   }, [fontFamily])
+
+  // Publish --bg-terminal: the actual color xterm is painting (color scheme
+  // bg when a scheme is active, otherwise the app theme's bg). The sidebar
+  // default and the SFTP window read this so they visually match whatever
+  // the terminal looks like.
+  useEffect(() => {
+    document.documentElement.style.setProperty(
+      '--bg-terminal',
+      getEffectiveTerminalBg(theme, colorScheme),
+    )
+  }, [theme, colorScheme])
+
+  // Sidebar background override. When the user picks a custom color it wins
+  // over --bg-terminal; clearing it falls back to "follow terminal bg".
+  useEffect(() => {
+    if (sidebarBackground) {
+      document.documentElement.style.setProperty('--bg-sidebar-override', sidebarBackground)
+    } else {
+      document.documentElement.style.removeProperty('--bg-sidebar-override')
+    }
+  }, [sidebarBackground])
 
   // Global subscriber: keep tab status in sync with main's lifecycle events.
   // Per-terminal close/error rendering still happens inside TerminalView.

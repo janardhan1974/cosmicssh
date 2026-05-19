@@ -311,6 +311,11 @@ export type TerminalSettings = {
   // text pure white. Applied on top of every other color knob so it works
   // whether a preset is active or not.
   brightness: number
+  // Override for the sidebar background. null (the default) means "follow the
+  // effective terminal background" — i.e. the resolved bg from the active
+  // color scheme, falling back to the app theme. Any other value is a literal
+  // CSS color (#rrggbb) painted on the sidebar regardless of theme/scheme.
+  sidebarBackground: string | null
 }
 
 export const DEFAULT_TERMINAL_SETTINGS: TerminalSettings = {
@@ -320,6 +325,7 @@ export const DEFAULT_TERMINAL_SETTINGS: TerminalSettings = {
   textColor: null,
   colorScheme: 'default',
   brightness: 0,
+  sidebarBackground: null,
 }
 
 // ─── SFTP / file operations ───────────────────────────────────────────────

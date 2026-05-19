@@ -257,8 +257,15 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 }
 
 /* ─── Sidebar ─────────────────────────────────────────────────────────── */
+/* Background resolution (App.tsx publishes these):
+   1. --bg-sidebar-override — set when the user picked a custom color in
+      Settings → "Sidebar background". Wins outright.
+   2. --bg-terminal — the color xterm is actually painting (scheme bg, or app
+      theme bg). This is the default so the sidebar matches the terminal.
+   3. --bg-sidebar — final fallback (the theme token) for the brief window
+      before App publishes --bg-terminal on mount. */
 .sidebar {
-  background: var(--bg-sidebar);
+  background: var(--bg-sidebar-override, var(--bg-terminal, var(--bg-sidebar)));
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -569,6 +576,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+  font-weight: 700;
 }
 /* Leading mode icon. flex-shrink:0 keeps it visible even when the label is
    ellipsized in a narrow tab. */
@@ -939,14 +947,14 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   position: absolute;
   inset: 0;
   flex-direction: column;
-  background: var(--bg);
+  background: var(--bg-terminal, var(--bg));
 }
 
 .terminal-host {
   flex: 1;
   min-height: 0;
   padding: 8px 4px 4px 8px;
-  background: var(--bg);
+  background: var(--bg-terminal, var(--bg));
 }
 
 .terminal-host .xterm,
@@ -956,12 +964,16 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 }
 
 /* ─── SFTP dual-pane ─────────────────────────────────────────────────── */
+/* SFTP window background tracks --bg-terminal so the SFTP canvas matches the
+   actual terminal color (including active color schemes). Chrome inside the
+   pane (pane header, toolbar, list header) intentionally keeps its own
+   slightly-elevated tokens so the column titles / button row stay readable. */
 .sftp-view {
   display: grid;
   /* gridTemplateColumns set inline by SftpView */
   position: absolute;
   inset: 0;
-  background: var(--bg);
+  background: var(--bg-terminal, var(--bg));
 }
 .sftp-view.hidden { display: none; }
 
@@ -982,7 +994,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  background: var(--bg);
+  background: var(--bg-terminal, var(--bg));
   outline: none; /* focusable for Shift+Delete; suppress browser focus ring */
 }
 
@@ -1012,7 +1024,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   font-family: "Cascadia Mono", Consolas, monospace;
   font-size: 12px;
   padding: 5px 8px;
-  background: var(--bg);
+  background: var(--bg-terminal, var(--bg));
   color: var(--fg);
   border: 1px solid var(--border);
   border-radius: 3px;

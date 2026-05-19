@@ -2,6 +2,6 @@
 // Overwritten on every build, and on every main-side src change in dev mode.
 // Do not edit by hand.
 
-export const BUILD_DATE_ISO = '2026-05-18T19:48:43.724Z'
-export const BUILD_DATE_DISPLAY = 'May 18, 2026, 2:48:43 PM'
-export const BUILD_VERSION = '05.18.2026.14.48.43'
+export const BUILD_DATE_ISO = '2026-05-19T02:46:35.068Z'
+export const BUILD_DATE_DISPLAY = 'May 18, 2026, 9:46:35 PM'
+export const BUILD_VERSION = '05.18.2026.21.46.35'

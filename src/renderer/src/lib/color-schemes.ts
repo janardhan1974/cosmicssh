@@ -1,5 +1,5 @@
 import type { ITheme } from '@xterm/xterm'
-import type { ColorSchemeId } from '../../../shared/types'
+import type { AppTheme, ColorSchemeId } from '../../../shared/types'
 
 // Curated terminal color presets. Each scheme provides a complete xterm
 // ITheme — background, foreground, cursor, selection, and the full 16-color
@@ -281,4 +281,26 @@ export function normalizeSchemeId(id: string | undefined | null): ColorSchemeId 
   if (!id) return 'default'
   const found = COLOR_SCHEMES.find((s) => s.id === id)
   return found ? found.id : 'default'
+}
+
+// Backgrounds the app theme paints into the terminal when no scheme is active.
+// Kept in lock-step with themeForXterm() in TerminalView so the rest of the
+// chrome (sidebar, sftp) can match what xterm is actually drawing.
+const APP_THEME_BG: Record<AppTheme, string> = {
+  dark: '#0f0f10',
+  light: '#ffffff',
+  blue: '#eef4fa',
+}
+
+// Effective terminal background for a (theme, scheme) pair. When a scheme is
+// active the scheme owns the bg; otherwise the app theme's bg applies. Used by
+// App.tsx to publish --bg-terminal so the sidebar default and the SFTP window
+// can follow whatever the terminal is actually painting.
+export function getEffectiveTerminalBg(
+  theme: AppTheme,
+  colorScheme: ColorSchemeId,
+): string {
+  const scheme = getSchemeTheme(colorScheme)
+  if (scheme && typeof scheme.background === 'string') return scheme.background
+  return APP_THEME_BG[theme]
 }

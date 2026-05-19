@@ -1,6 +1,6 @@
 {
   "name": "cosmicssh",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": true,
   "description": "Personal SSH/SFTP client for Windows and Linux.",
   "homepage": "https://github.com/janardhan1974/mobajana",

@@ -103,6 +103,15 @@ export function Settings({ onClose }: Props) {
   const [brightness, setBrightness] = useState<number>(current.brightness)
   const [useThemeText, setUseThemeText] = useState(current.textColor === null)
   const [textColor, setTextColor] = useState<string>(current.textColor ?? '#e8e6e3')
+  // null = sidebar follows terminal bg (the default). The hex input keeps its
+  // last value across the checkbox toggle so re-enabling the override doesn't
+  // wipe what the user picked.
+  const [sidebarFollowsTerminal, setSidebarFollowsTerminal] = useState(
+    current.sidebarBackground === null,
+  )
+  const [sidebarBackground, setSidebarBackground] = useState<string>(
+    current.sidebarBackground ?? '#131317',
+  )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -155,6 +164,7 @@ export function Settings({ onClose }: Props) {
         colorScheme,
         brightness,
         textColor: useThemeText ? null : textColor,
+        sidebarBackground: sidebarFollowsTerminal ? null : sidebarBackground,
       })
       onClose()
     } catch (err) {
@@ -231,6 +241,44 @@ export function Settings({ onClose }: Props) {
             ))}
           </select>
         </label>
+
+        {/* Sidebar background. Default ("follow terminal") leaves the sidebar
+            tracking whatever color xterm is painting — including active color
+            schemes. Toggling it off exposes a color picker for a literal
+            override that wins over both theme and scheme. */}
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={sidebarFollowsTerminal}
+            onChange={(e) => setSidebarFollowsTerminal(e.target.checked)}
+            disabled={busy}
+          />
+          <span>Sidebar background follows terminal</span>
+        </label>
+
+        {!sidebarFollowsTerminal && (
+          <label>
+            <span>Sidebar background</span>
+            <span className="color-row">
+              <input
+                type="color"
+                value={sidebarBackground}
+                onChange={(e) => setSidebarBackground(e.target.value)}
+                disabled={busy}
+                className="color-swatch"
+              />
+              <input
+                type="text"
+                value={sidebarBackground}
+                onChange={(e) => setSidebarBackground(e.target.value)}
+                disabled={busy}
+                pattern="^#[0-9a-fA-F]{6}$"
+                placeholder="#131317"
+                style={{ flex: 1, fontFamily: 'monospace' }}
+              />
+            </span>
+          </label>
+        )}
 
         {/* Text-color override only meaningful when no scheme is active —
             otherwise the scheme owns the full palette. Hidden (not disabled)
