@@ -96,6 +96,55 @@ linux:
       Comment: Personal SSH/SFTP client
       Categories: Network;RemoteAccess;
 
+# ─── macOS targets (build on a macOS host with `npm run dist:mac`) ────────
+# Cross-building macOS from Windows/Linux is NOT supported by electron-builder
+# (the resulting bundle won't pass Gatekeeper / notarization). DMG is the
+# user-facing installer; zip is the auto-updater channel format and is harmless
+# to ship now even with the updater disabled.
+#
+# Apple Silicon (arm64) is the default for new Macs; Intel (x64) covers older
+# hardware. Two arches × two formats = four artifacts per release. If you'd
+# rather ship one fat binary, change both arch lists to `universal` (larger
+# file, but a single download covers both CPUs).
+mac:
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: zip
+      arch:
+        - arm64
+        - x64
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  icon: resources/icon.png
+  # LSApplicationCategoryType — surfaces in Finder, Launchpad, About panels.
+  category: public.app-category.developer-tools
+  # Hardened runtime is required for notarization. Safe to enable now even
+  # without a signing identity — unsigned + hardened runtime just means the
+  # build won't notarize, which is the same state we're already in.
+  hardenedRuntime: true
+  # Gatekeeper assessment is skipped when there's no identity, so leave this
+  # null until you have a Developer ID. With `null` electron-builder will NOT
+  # attempt to sign — the resulting .app is unsigned and opening it requires
+  # right-click → Open the first time (Gatekeeper warning).
+  identity: null
+  # When you acquire a Developer ID Application cert, set:
+  #   identity: "Developer ID Application: Your Name (TEAMID)"
+  #   notarize:
+  #     teamId: TEAMID
+  # and export APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD in the build env so
+  # electron-builder can call notarytool. The entitlements file below covers
+  # the runtime allowances ssh2 needs (network client, JIT-free).
+  # entitlements: resources/entitlements.mac.plist
+  # entitlementsInherit: resources/entitlements.mac.plist
+
+dmg:
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  # The .dmg window layout — keep the defaults (icon + Applications shortcut
+  # side-by-side, drag to install). Override here if you want a custom
+  # background or window size later.
+
 # Auto-updater wiring deferred per plan M10 ("disabled by default for v1 —
 # confirm with me before enabling"). When ready, switch this to:
 #   publish:
