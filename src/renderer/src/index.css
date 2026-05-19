@@ -953,14 +953,31 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .terminal-host {
   flex: 1;
   min-height: 0;
-  padding: 8px 4px 4px 8px;
   background: var(--bg-terminal, var(--bg));
 }
 
-.terminal-host .xterm,
-.terminal-host .xterm-viewport,
-.terminal-host .xterm-screen {
+/* Padding lives on .xterm (not .terminal-host) because FitAddon's row
+   calculation only subtracts padding read from the .xterm element — any
+   padding on the parent is invisible to it, leading to one row too many
+   and the cursor row rendering past the host bottom. With border-box +
+   matching padding here, FitAddon's math lines up with reality.
+
+   height:100% gives .xterm a height (xterm.css leaves it position:relative
+   with no intrinsic size, and its children are absolutely positioned —
+   without this it collapses to 0). */
+.terminal-host .xterm {
+  box-sizing: border-box;
+  padding: 8px 4px 8px 8px;
   height: 100% !important;
+}
+
+/* xterm.css ships .xterm-viewport { background-color: #000 } — fine when the
+   terminal is dark, but with a light/colored scheme the 8px frame around
+   .xterm-screen (which sits inside .xterm's padding-box, while the viewport
+   ignores padding and fills the full .xterm) shows through as a black band.
+   Bind it to --bg-terminal so the frame matches the theme. */
+.terminal-host .xterm-viewport {
+  background-color: var(--bg-terminal, var(--bg)) !important;
 }
 
 /* ─── SFTP dual-pane ─────────────────────────────────────────────────── */

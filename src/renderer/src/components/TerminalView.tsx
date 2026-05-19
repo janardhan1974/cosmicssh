@@ -266,17 +266,34 @@ export function TerminalView({ sessionId, isActive }: Props) {
       term.write(`\r\n\x1b[31m── error: ${evt.message} ──\x1b[0m\r\n`)
     })
 
-    const onWindowResize = () => fit.fit()
-    window.addEventListener('resize', onWindowResize)
+    // Coalesce fit() calls across a single frame. During a fast drag-resize
+    // (FloatingChrome MDI corner, tile-mode divider, window edge), the
+    // ResizeObserver and window 'resize' can fire multiple times per frame —
+    // batching to one fit() per rAF keeps the grid in lock-step with the
+    // container so the bottom row (where the cursor lives) never lags behind
+    // a shrinking host and gets visually clipped.
+    let pendingFit = 0
+    const scheduleFit = () => {
+      if (pendingFit !== 0) return
+      pendingFit = requestAnimationFrame(() => {
+        pendingFit = 0
+        // fit() throws inside a transient state (e.g. host briefly
+        // display:none during a layout flush). The next observation will
+        // catch up, so swallow.
+        try { fit.fit() } catch { /* layout in flux — next tick will retry */ }
+      })
+    }
+    window.addEventListener('resize', scheduleFit)
 
     // Sidebar resize / panel layout changes don't fire window 'resize'; observe
     // the host container directly so xterm refits when the pane width changes.
-    const ro = new ResizeObserver(() => fit.fit())
+    const ro = new ResizeObserver(scheduleFit)
     ro.observe(hostRef.current)
 
     const host = hostRef.current
     return () => {
-      window.removeEventListener('resize', onWindowResize)
+      window.removeEventListener('resize', scheduleFit)
+      if (pendingFit !== 0) cancelAnimationFrame(pendingFit)
       host?.removeEventListener('wheel', onWheel, { capture: true } as EventListenerOptions)
       host?.removeEventListener('contextmenu', onContextMenu)
       ro.disconnect()
