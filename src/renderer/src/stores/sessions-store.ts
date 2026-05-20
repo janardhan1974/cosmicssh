@@ -47,6 +47,10 @@ export type Tab = {
   // show a "● REC" indicator on the tab and surface the path on hover.
   // Cleared when the session closes (file stream is closed in main too).
   logPath?: string
+  // User-typed override for the tab's display name. When set, renders in
+  // place of profile.name. Per-tab only — not persisted to the profile and
+  // cleared on close/reconnect (see closeTab / replaceSession).
+  customLabel?: string
 }
 
 type State = {
@@ -70,6 +74,9 @@ type State = {
   addTab: (tab: Tab) => void
   setActive: (sessionId: string) => void
   setMode: (sessionId: string, mode: TabMode) => void
+  // Set / clear the user-typed display name for a tab. Pass null (or an
+  // empty string after trim) to revert to the profile name.
+  setCustomLabel: (sessionId: string, label: string | null) => void
   closeTab: (sessionId: string) => void
   markClosed: (sessionId: string, detail: string) => void
   // Replace a closed tab's sessionId with a freshly-opened one. Used by the
@@ -104,6 +111,16 @@ export const useSessionsStore = create<State>((set, get) => ({
         t.sessionId === sessionId ? { ...t, mode } : t,
       ),
     }),
+  setCustomLabel: (sessionId, label) => {
+    const trimmed = label?.trim()
+    set({
+      tabs: get().tabs.map((t) =>
+        t.sessionId === sessionId
+          ? { ...t, customLabel: trimmed ? trimmed : undefined }
+          : t,
+      ),
+    })
+  },
   closeTab: (sessionId) => {
     const remaining = get().tabs.filter((t) => t.sessionId !== sessionId)
     let nextActive = get().activeId
@@ -133,7 +150,13 @@ export const useSessionsStore = create<State>((set, get) => ({
     set((s) => {
       const tabs: Tab[] = s.tabs.map((t) =>
         t.sessionId === oldSessionId
-          ? { ...t, sessionId: newSessionId, status: 'open' as const, closedDetail: undefined }
+          ? {
+              ...t,
+              sessionId: newSessionId,
+              status: 'open' as const,
+              closedDetail: undefined,
+              customLabel: undefined,
+            }
           : t,
       )
       const activeId = s.activeId === oldSessionId ? newSessionId : s.activeId

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { getScrollbackText } from '../lib/terminal-registry'
 import { useSessionsStore } from '../stores/sessions-store'
 import { ContextMenu, type ContextMenuItem } from './ContextMenu'
@@ -33,17 +33,52 @@ export function TabBar({ onCloseTab, onReconnect, onClone }: Props) {
   const tabs = useSessionsStore((s) => s.tabs)
   const activeId = useSessionsStore((s) => s.activeId)
   const setActive = useSessionsStore((s) => s.setActive)
+  const setCustomLabel = useSessionsStore((s) => s.setCustomLabel)
   const [menu, setMenu] = useState<MenuState>(null)
+  // Which tab (if any) is currently being inline-renamed, plus the draft
+  // string the user is editing. Cleared on commit (Enter / blur) or cancel
+  // (Escape). Tracking by sessionId rather than index so the edit follows
+  // the tab if other tabs close while editing.
+  const [renaming, setRenaming] = useState<{ sessionId: string; draft: string } | null>(null)
+  const inputRef = useRef<HTMLInputElement | null>(null)
+
+  // When entering rename mode, focus + select the input so typing replaces
+  // the whole label by default. autoFocus on the input handles the focus;
+  // .select() is what the user expects on top of focus.
+  useEffect(() => {
+    if (renaming && inputRef.current) inputRef.current.select()
+  }, [renaming?.sessionId])
 
   if (tabs.length === 0) return null
 
-  // Tab right-click menu. Reduced to a single Reconnect item per request.
-  // Reconnect requires a saved profile id (ad-hoc tabs can't be re-derived);
-  // shown disabled with a hint when unavailable so the menu shape is stable.
+  const beginRename = (sessionId: string): void => {
+    const tab = tabs.find((t) => t.sessionId === sessionId)
+    if (!tab) return
+    setRenaming({ sessionId, draft: tab.customLabel ?? tab.profile.name })
+  }
+
+  const commitRename = (): void => {
+    if (!renaming) return
+    const tab = tabs.find((t) => t.sessionId === renaming.sessionId)
+    const trimmed = renaming.draft.trim()
+    // Treating empty OR identical-to-profile-name as "clear override" keeps
+    // the store clean — no point storing a customLabel that equals the
+    // fallback.
+    const next = !trimmed || trimmed === tab?.profile.name ? null : trimmed
+    setCustomLabel(renaming.sessionId, next)
+    setRenaming(null)
+  }
+
+  const cancelRename = (): void => setRenaming(null)
+
+  // Tab right-click menu. Rename is always available (purely visual, works
+  // for ad-hoc tabs too). Reconnect requires a saved profile id; shown
+  // disabled with a hint when unavailable so the menu shape is stable.
   const menuItems = (sessionId: string): ContextMenuItem[] => {
     const tab = tabs.find((t) => t.sessionId === sessionId)
     const isAdHoc = !tab?.profile.id
     return [
+      { label: 'Rename', onClick: () => beginRename(sessionId) },
       {
         label: isAdHoc ? 'Reconnect (needs a saved profile)' : 'Reconnect',
         onClick: () => onReconnect(sessionId),
@@ -126,7 +161,42 @@ export function TabBar({ onCloseTab, onReconnect, onClone }: Props) {
             <span className="tab-icon" aria-hidden="true">
               {tab.mode === 'sftp' ? <SftpIcon size={14} /> : <TerminalIcon size={14} />}
             </span>
-            <span className="tab-label">{tab.profile.name}</span>
+            {renaming?.sessionId === tab.sessionId ? (
+              <input
+                ref={inputRef}
+                className="tab-label tab-label-input"
+                autoFocus
+                value={renaming.draft}
+                onChange={(e) =>
+                  setRenaming({ sessionId: tab.sessionId, draft: e.target.value })
+                }
+                onBlur={commitRename}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    commitRename()
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault()
+                    cancelRename()
+                  }
+                }}
+                // Stop click/dblclick from bubbling to the tab — otherwise
+                // setActive would re-fire and the user would lose the caret
+                // position when clicking mid-edit.
+                onClick={(e) => e.stopPropagation()}
+                onDoubleClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <span
+                className="tab-label"
+                onDoubleClick={(e) => {
+                  e.stopPropagation()
+                  beginRename(tab.sessionId)
+                }}
+              >
+                {tab.customLabel ?? tab.profile.name}
+              </span>
+            )}
             <button
               type="button"
               className="tab-close"

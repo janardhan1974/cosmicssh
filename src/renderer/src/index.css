@@ -530,6 +530,9 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 /* ─── Tab bar ─────────────────────────────────────────────────────────── */
 .tab-bar {
   display: flex;
+  /* 2px breathing room between tabs replaces the old border-right separator;
+     keeps the rounded tops from butting into each other. */
+  gap: 2px;
   background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
@@ -541,7 +544,21 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   align-items: center;
   gap: 8px;
   padding: 8px 10px 8px 14px;
-  border-right: 1px solid var(--border);
+  /* Rounded top corners only — bottom stays flush so the active tab can
+     visually merge into the terminal area via its border-bottom + -1px
+     margin (see .tab.active below). */
+  border-radius: 8px 8px 0 0;
+  /* Visible-edge outline (top + sides). Inactive tabs use --border (muted)
+     so the active tab can claim the eye via --accent in .tab.active below;
+     keeping all tabs at 2px width means no layout jump when activation
+     swaps the color. Bottom is open: the active tab fills it in via its
+     own border-bottom override; inactive tabs sit on top of .tab-bar's
+     border-bottom which closes them visually.
+     box-sizing: border-box so the border doesn't grow the tab's outer
+     dimensions (gap from .tab-bar would otherwise expand by 4px per tab). */
+  box-sizing: border-box;
+  border: 2px solid var(--border);
+  border-bottom: none;
   cursor: pointer;
   font-size: 12px;
   color: var(--fg-soft);
@@ -551,12 +568,13 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 /* Left accent stripe — color is set per-tab via the --tab-accent custom
    property (assigned in TabBar.tsx as a hash of profile.id / sessionId).
    Falls back to transparent if no accent is set, so ad-hoc/no-profile
-   states still render cleanly. */
+   states still render cleanly. top:8 keeps the stripe clear of the new
+   top-left corner radius. */
 .tab::before {
   content: '';
   position: absolute;
   left: 0;
-  top: 6px;
+  top: 8px;
   bottom: 6px;
   width: 3px;
   border-radius: 0 2px 2px 0;
@@ -566,6 +584,11 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .tab.active {
   background: var(--bg);
   color: var(--fg);
+  /* Bright accent outline on all four sides — overrides the base --border
+     for top/sides, and fills in the bottom (which the base sets to none).
+     margin-bottom:-1px overlaps the .tab-bar bottom border so the active
+     tab visually "connects" into the terminal area below. */
+  border-color: var(--accent);
   border-bottom: 2px solid var(--accent);
   margin-bottom: -1px;
 }
@@ -577,6 +600,22 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   text-overflow: ellipsis;
   min-width: 0;
   font-weight: 700;
+}
+/* Inline-edit field for renaming a tab. Looks like the label (same font /
+   weight) with a slim accent outline so it reads as "editable" without
+   resizing the tab. */
+.tab-label-input {
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  color: var(--fg);
+  font: inherit;
+  font-weight: 700;
+  padding: 0 4px;
+  margin: -1px 0;
+  outline: none;
+  min-width: 0;
+  width: 100%;
 }
 /* Leading mode icon. flex-shrink:0 keeps it visible even when the label is
    ellipsized in a narrow tab. */
