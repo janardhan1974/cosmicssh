@@ -1,5 +1,5 @@
 import type { ITheme } from '@xterm/xterm'
-import type { AppTheme, ColorSchemeId } from '../../../shared/types'
+import type { AppTheme, ColorSchemeId, CustomColorScheme } from '../../../shared/types'
 
 // Curated terminal color presets. Each scheme provides a complete xterm
 // ITheme — background, foreground, cursor, selection, and the full 16-color
@@ -12,6 +12,24 @@ import type { AppTheme, ColorSchemeId } from '../../../shared/types'
 // and the textColor override is hidden in the Settings UI.
 
 export type { ColorSchemeId }
+
+// Lerp an #rrggbb color toward white by `t` in [0,1]. 0 returns the input
+// unchanged; 1 returns #ffffff. Used by both the terminal foreground-brightness
+// slider and the UI-brightness slider — anything other than a six-digit hex
+// falls through unchanged so an unexpected value (named CSS color from xterm
+// defaults, rgba(), …) can't crash the merge.
+export function brightenHex(hex: string, t: number): string {
+  if (t <= 0) return hex
+  const m = /^#([0-9a-fA-F]{6})$/.exec(hex)
+  if (!m) return hex
+  const n = parseInt(m[1]!, 16)
+  const r = (n >> 16) & 0xff
+  const g = (n >> 8) & 0xff
+  const b = n & 0xff
+  const lerp = (v: number) => Math.round(v + (255 - v) * t)
+  const hh = (v: number) => v.toString(16).padStart(2, '0')
+  return `#${hh(lerp(r))}${hh(lerp(g))}${hh(lerp(b))}`
+}
 
 export type ColorSchemeMeta = {
   id: ColorSchemeId
@@ -275,6 +293,25 @@ export function getSchemeTheme(id: ColorSchemeId): ITheme | null {
   return SCHEME_THEMES[id]
 }
 
+// Custom-aware scheme resolver. If a customSchemeId is set and a matching
+// entry exists in customSchemes, its full palette is returned (custom
+// overrides built-in). Otherwise falls back to the built-in colorScheme
+// (which may be 'default' → null). A dangling customSchemeId — pointing at
+// a scheme that's since been deleted — is treated as "no custom" rather
+// than throwing, so the user sees a graceful fallback to their last
+// built-in choice.
+export function resolveSchemeTheme(
+  colorScheme: ColorSchemeId,
+  customSchemeId: string | null,
+  customSchemes: CustomColorScheme[],
+): ITheme | null {
+  if (customSchemeId) {
+    const found = customSchemes.find((s) => s.id === customSchemeId)
+    if (found) return found.theme
+  }
+  return getSchemeTheme(colorScheme)
+}
+
 // Defensive guard for IPC-loaded settings — if a saved colorScheme references
 // a scheme that's since been removed from the catalog, fall back to default.
 export function normalizeSchemeId(id: string | undefined | null): ColorSchemeId {
@@ -292,15 +329,45 @@ const APP_THEME_BG: Record<AppTheme, string> = {
   blue: '#eef4fa',
 }
 
-// Effective terminal background for a (theme, scheme) pair. When a scheme is
-// active the scheme owns the bg; otherwise the app theme's bg applies. Used by
-// App.tsx to publish --bg-terminal so the sidebar default and the SFTP window
-// can follow whatever the terminal is actually painting.
+// Theme default fg in #rrggbb form — mirrors the --fg values in :root rules
+// in index.css. Used by App.tsx as the base for the UI brightness lerp when
+// no uiTextColor is set, so the slider has something concrete to brighten.
+const APP_THEME_FG: Record<AppTheme, string> = {
+  dark: '#ffffff',
+  light: '#000000',
+  blue: '#16263a',
+}
+
+// Resolve the effective UI text color for a (theme, override, brightness)
+// triple. Returns null when no override is needed (theme default + no
+// brightness boost — let the index.css :root rule win). Otherwise returns
+// the #rrggbb the renderer should write into --fg.
+export function getEffectiveUiFg(
+  theme: AppTheme,
+  uiTextColor: string | null,
+  uiBrightness: number,
+): string | null {
+  if (!uiTextColor && uiBrightness <= 0) return null
+  const base = uiTextColor ?? APP_THEME_FG[theme]
+  if (uiBrightness <= 0) return base
+  return brightenHex(base, Math.min(100, Math.max(0, uiBrightness)) / 100)
+}
+
+// Effective terminal background for a (theme, scheme, override) tuple. The
+// override (terminalBackground setting) wins over everything when set; then
+// the active color scheme's bg (custom-first via resolveSchemeTheme); falling
+// back to the app theme. Used by App.tsx to publish --bg-terminal so the
+// sidebar default and the SFTP window can follow whatever the terminal is
+// actually painting.
 export function getEffectiveTerminalBg(
   theme: AppTheme,
   colorScheme: ColorSchemeId,
+  override: string | null = null,
+  customSchemeId: string | null = null,
+  customSchemes: CustomColorScheme[] = [],
 ): string {
-  const scheme = getSchemeTheme(colorScheme)
+  if (override) return override
+  const scheme = resolveSchemeTheme(colorScheme, customSchemeId, customSchemes)
   if (scheme && typeof scheme.background === 'string') return scheme.background
   return APP_THEME_BG[theme]
 }

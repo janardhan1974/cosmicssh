@@ -316,6 +316,71 @@ export type TerminalSettings = {
   // color scheme, falling back to the app theme. Any other value is a literal
   // CSS color (#rrggbb) painted on the sidebar regardless of theme/scheme.
   sidebarBackground: string | null
+  // Override for the terminal (and SFTP) background. null (the default) means
+  // "follow color scheme / theme" — the legacy pathway. Any other value wins
+  // over both the scheme bg and the theme bg, and is also pushed into xterm's
+  // theme.background so chrome and text bg stay in lockstep. SFTP follows the
+  // same value because the SFTP pane reads --bg-terminal.
+  terminalBackground: string | null
+  // ─── UI text (chrome) ───────────────────────────────────────────────────
+  // Decoupled from the terminal-text controls above so a user can run a
+  // monospace terminal font alongside a proportional UI font, scale chrome
+  // independently of the terminal, etc. The renderer publishes these as
+  // --ui-font / --ui-font-size / --fg so MenuBar, Sidebar, TabBar and SFTP
+  // pick them up via CSS without needing per-component plumbing.
+  uiFontFamily: string
+  uiFontSize: number
+  // null = follow the app theme's fg (current default). Hex value overrides
+  // --fg for non-terminal chrome only — xterm's foreground is controlled by
+  // textColor + brightness above, NOT by this.
+  uiTextColor: string | null
+  // 0..100 — lerps the resolved UI text color toward white. Applied on top
+  // of uiTextColor (or the theme default when uiTextColor is null).
+  uiBrightness: number
+  // ─── Custom color schemes ──────────────────────────────────────────────
+  // User-authored schemes alongside the 11 built-ins. Each entry is a full
+  // 21-color palette (5 primary + 16 ANSI). When customSchemeId points at
+  // one of these, it overrides colorScheme everywhere — the picker treats
+  // the custom list as additional dropdown options.
+  customSchemes: CustomColorScheme[]
+  // When set, names a customSchemes[].id and takes precedence over
+  // colorScheme. null = no custom scheme active; colorScheme decides. If a
+  // user selects a custom and later deletes it, this is reset to null and
+  // the colorScheme value (which we keep intact across custom selections)
+  // is what they see.
+  customSchemeId: string | null
+}
+
+// A full xterm palette saved by the user. Mirrors the keys of @xterm/xterm's
+// ITheme that the renderer actually applies (we don't expose every ITheme
+// field — only the 21 colors the built-in schemes already set, since those
+// are what visibly changes the terminal).
+export type CustomColorScheme = {
+  id: string
+  name: string
+  theme: {
+    background: string
+    foreground: string
+    cursor: string
+    cursorAccent: string
+    selectionBackground: string
+    black: string
+    red: string
+    green: string
+    yellow: string
+    blue: string
+    magenta: string
+    cyan: string
+    white: string
+    brightBlack: string
+    brightRed: string
+    brightGreen: string
+    brightYellow: string
+    brightBlue: string
+    brightMagenta: string
+    brightCyan: string
+    brightWhite: string
+  }
 }
 
 export const DEFAULT_TERMINAL_SETTINGS: TerminalSettings = {
@@ -326,6 +391,13 @@ export const DEFAULT_TERMINAL_SETTINGS: TerminalSettings = {
   colorScheme: 'default',
   brightness: 0,
   sidebarBackground: null,
+  terminalBackground: null,
+  uiFontFamily: '"Cascadia Mono", Consolas, "Courier New", monospace',
+  uiFontSize: 12,
+  uiTextColor: null,
+  uiBrightness: 0,
+  customSchemes: [],
+  customSchemeId: null,
 }
 
 // ─── SFTP / file operations ───────────────────────────────────────────────

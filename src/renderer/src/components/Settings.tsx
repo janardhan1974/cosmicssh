@@ -1,8 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useSettingsStore } from '../stores/settings-store'
-import { APP_THEMES, type AppTheme, type ColorSchemeId } from '../../../shared/types'
+import {
+  APP_THEMES,
+  type AppTheme,
+  type ColorSchemeId,
+  type CustomColorScheme,
+} from '../../../shared/types'
 import { COLOR_SCHEMES } from '../lib/color-schemes'
 import { ModalBackdrop } from './ModalBackdrop'
+import { SchemeEditor } from './SchemeEditor'
 
 type Props = {
   onClose: () => void
@@ -77,9 +83,10 @@ const FONT_SIZES = [10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24]
 export function Settings({ onClose }: Props) {
   const current = useSettingsStore((s) => s.terminal)
   const setTerminal = useSettingsStore((s) => s.setTerminal)
-  // Capture the brightness value at modal open so Cancel can revert the
-  // live preview. Other settings only apply on Save, so they don't need this.
+  // Capture brightness values at modal open so Cancel can revert the
+  // live previews (both terminal and UI brightness preview live).
   const originalBrightnessRef = useRef(current.brightness)
+  const originalUiBrightnessRef = useRef(current.uiBrightness)
   // Flipped to true inside handleSubmit just before setTerminal is awaited so
   // the unmount cleanup knows not to clobber the freshly-saved value.
   const savedRef = useRef(false)
@@ -95,11 +102,30 @@ export function Settings({ onClose }: Props) {
       ...FONT_CHOICES,
     ]
   }, [current.fontFamily])
+  // Same custom-first treatment for the UI font picker. Note this also
+  // catches the post-migration case where uiFontFamily was carried over from
+  // an old terminal.fontFamily that isn't in FONT_CHOICES.
+  const uiChoices = useMemo<FontChoice[]>(() => {
+    const matched = FONT_CHOICES.find((f) => f.value === current.uiFontFamily)
+    if (matched) return FONT_CHOICES
+    return [
+      { label: `Custom — ${current.uiFontFamily}`, value: current.uiFontFamily, note: 'Saved previously' },
+      ...FONT_CHOICES,
+    ]
+  }, [current.uiFontFamily])
 
   const [fontFamily, setFontFamily] = useState(current.fontFamily)
   const [fontSize, setFontSize] = useState(current.fontSize)
+  const [uiFontFamily, setUiFontFamily] = useState(current.uiFontFamily)
+  const [uiFontSize, setUiFontSize] = useState(current.uiFontSize)
+  const [useThemeUiText, setUseThemeUiText] = useState(current.uiTextColor === null)
+  const [uiTextColor, setUiTextColor] = useState<string>(current.uiTextColor ?? '#e8e6e3')
+  const [uiBrightness, setUiBrightness] = useState<number>(current.uiBrightness)
   const [theme, setThemeLocal] = useState<AppTheme>(current.theme)
   const [colorScheme, setColorScheme] = useState<ColorSchemeId>(current.colorScheme)
+  const [customSchemes, setCustomSchemes] = useState<CustomColorScheme[]>(current.customSchemes)
+  const [customSchemeId, setCustomSchemeIdLocal] = useState<string | null>(current.customSchemeId)
+  const [schemeEditorOpen, setSchemeEditorOpen] = useState(false)
   const [brightness, setBrightness] = useState<number>(current.brightness)
   const [useThemeText, setUseThemeText] = useState(current.textColor === null)
   const [textColor, setTextColor] = useState<string>(current.textColor ?? '#e8e6e3')
@@ -111,6 +137,16 @@ export function Settings({ onClose }: Props) {
   )
   const [sidebarBackground, setSidebarBackground] = useState<string>(
     current.sidebarBackground ?? '#131317',
+  )
+  // null = terminal/sftp bg follows the color scheme + theme (default).
+  // Toggling off exposes a color picker for a literal override that wins
+  // over scheme + theme. SFTP and the sidebar default both follow this via
+  // --bg-terminal, so picking a color here reskins all three at once.
+  const [terminalFollowsScheme, setTerminalFollowsScheme] = useState(
+    current.terminalBackground === null,
+  )
+  const [terminalBackground, setTerminalBackground] = useState<string>(
+    current.terminalBackground ?? '#0f0f10',
   )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -129,6 +165,10 @@ export function Settings({ onClose }: Props) {
     setBrightness(n)
     useSettingsStore.setState((s) => ({ terminal: { ...s.terminal, brightness: n } }))
   }
+  const previewUiBrightness = (n: number) => {
+    setUiBrightness(n)
+    useSettingsStore.setState((s) => ({ terminal: { ...s.terminal, uiBrightness: n } }))
+  }
 
   // Revert any in-flight preview when the modal closes without Save. The Save
   // path replaces the store value anyway, so calling this after Save is a
@@ -136,7 +176,11 @@ export function Settings({ onClose }: Props) {
   // out before the IPC reply lands — invisible to the user).
   const revertPreview = () => {
     useSettingsStore.setState((s) => ({
-      terminal: { ...s.terminal, brightness: originalBrightnessRef.current },
+      terminal: {
+        ...s.terminal,
+        brightness: originalBrightnessRef.current,
+        uiBrightness: originalUiBrightnessRef.current,
+      },
     }))
   }
 
@@ -165,6 +209,19 @@ export function Settings({ onClose }: Props) {
         brightness,
         textColor: useThemeText ? null : textColor,
         sidebarBackground: sidebarFollowsTerminal ? null : sidebarBackground,
+        terminalBackground: terminalFollowsScheme ? null : terminalBackground,
+        uiFontFamily,
+        uiFontSize,
+        uiTextColor: useThemeUiText ? null : uiTextColor,
+        uiBrightness,
+        customSchemes,
+        // Reset customSchemeId if it points at a scheme that's been deleted
+        // since selection — otherwise a stale id sticks around in storage
+        // even though the picker shows it as gone.
+        customSchemeId:
+          customSchemeId && customSchemes.some((s) => s.id === customSchemeId)
+            ? customSchemeId
+            : null,
       })
       onClose()
     } catch (err) {
@@ -177,6 +234,7 @@ export function Settings({ onClose }: Props) {
   }
 
   return (
+    <>
     <ModalBackdrop onClose={onClose}>
       <form
         className="modal settings-modal"
@@ -188,17 +246,51 @@ export function Settings({ onClose }: Props) {
           on a per-terminal basis.
         </p>
 
+        {/* Color scheme picker. The select shows both built-in schemes AND
+            the user's custom schemes (separated visually with a disabled
+            "── Custom" optgroup-style row). When a custom is picked,
+            customSchemeId is set; picking a built-in clears it. We KEEP
+            the previously-selected built-in colorScheme value across a
+            custom selection so removing a custom drops back to it. */}
         <label>
           <span>Color scheme</span>
-          <select
-            value={colorScheme}
-            onChange={(e) => setColorScheme(e.target.value as ColorSchemeId)}
-            disabled={busy}
-          >
-            {COLOR_SCHEMES.map((s) => (
-              <option key={s.id} value={s.id}>{s.label}</option>
-            ))}
-          </select>
+          <span style={{ display: 'flex', gap: 6 }}>
+            <select
+              value={customSchemeId ?? colorScheme}
+              onChange={(e) => {
+                const v = e.target.value
+                if (v.startsWith('custom-')) {
+                  setCustomSchemeIdLocal(v)
+                } else {
+                  setCustomSchemeIdLocal(null)
+                  setColorScheme(v as ColorSchemeId)
+                }
+              }}
+              disabled={busy}
+              style={{ flex: 1 }}
+            >
+              <optgroup label="Built-in">
+                {COLOR_SCHEMES.map((s) => (
+                  <option key={s.id} value={s.id}>{s.label}</option>
+                ))}
+              </optgroup>
+              {customSchemes.length > 0 && (
+                <optgroup label="Custom">
+                  {customSchemes.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+            <button
+              type="button"
+              onClick={() => setSchemeEditorOpen(true)}
+              disabled={busy}
+              title="Create, edit or delete your own color schemes"
+            >
+              Manage…
+            </button>
+          </span>
         </label>
 
         {/* Text brightness — lerps the resolved foreground toward white.
@@ -242,10 +334,50 @@ export function Settings({ onClose }: Props) {
           </select>
         </label>
 
+        {/* Terminal / SFTP background. Default ("follow color scheme") keeps
+            the legacy pathway: bg = scheme bg, falling back to theme bg.
+            Toggling it off exposes a literal color picker that wins over
+            both. SFTP follows the same value (it reads --bg-terminal), so
+            this single control re-skins both panes simultaneously. */}
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={terminalFollowsScheme}
+            onChange={(e) => setTerminalFollowsScheme(e.target.checked)}
+            disabled={busy}
+          />
+          <span>Terminal &amp; SFTP background follows color scheme</span>
+        </label>
+
+        {!terminalFollowsScheme && (
+          <label>
+            <span>Terminal &amp; SFTP background</span>
+            <span className="color-row">
+              <input
+                type="color"
+                value={terminalBackground}
+                onChange={(e) => setTerminalBackground(e.target.value)}
+                disabled={busy}
+                className="color-swatch"
+              />
+              <input
+                type="text"
+                value={terminalBackground}
+                onChange={(e) => setTerminalBackground(e.target.value)}
+                disabled={busy}
+                pattern="^#[0-9a-fA-F]{6}$"
+                placeholder="#0f0f10"
+                style={{ flex: 1, fontFamily: 'monospace' }}
+              />
+            </span>
+          </label>
+        )}
+
         {/* Sidebar background. Default ("follow terminal") leaves the sidebar
             tracking whatever color xterm is painting — including active color
-            schemes. Toggling it off exposes a color picker for a literal
-            override that wins over both theme and scheme. */}
+            schemes and the terminal-bg override above. Toggling it off
+            exposes a color picker for a literal override that wins over
+            theme, scheme, AND the terminal-bg override. */}
         <label className="checkbox">
           <input
             type="checkbox"
@@ -362,6 +494,102 @@ export function Settings({ onClose }: Props) {
           {'$ ssh user@host\n[user@host ~]$ vim README.md  # 1234567890'}
         </div>
 
+        {/* ─── UI text (chrome) ──────────────────────────────────────────
+            Independent controls for the non-terminal chrome — menu bar,
+            sidebar, tab labels, SFTP panes. Decoupled from the terminal
+            tier above so a monospace terminal + proportional UI font is a
+            single picker change. */}
+        <h3 style={{ marginTop: 18, marginBottom: 4 }}>UI text (chrome)</h3>
+        <p className="muted" style={{ marginTop: 0 }}>
+          Applies to the menu bar, sidebar, tab bar and SFTP panes — not
+          the terminal.
+        </p>
+
+        <label>
+          <span>UI font</span>
+          <select
+            value={uiFontFamily}
+            onChange={(e) => setUiFontFamily(e.target.value)}
+            disabled={busy}
+          >
+            {uiChoices.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+                {c.note ? `  —  ${c.note}` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          <span>UI size</span>
+          <select
+            value={uiFontSize}
+            onChange={(e) => setUiFontSize(Number.parseInt(e.target.value, 10))}
+            disabled={busy}
+          >
+            {FONT_SIZES.map((s) => (
+              <option key={s} value={s}>{s}px</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={useThemeUiText}
+            onChange={(e) => setUseThemeUiText(e.target.checked)}
+            disabled={busy}
+          />
+          <span>UI text color follows theme</span>
+        </label>
+
+        {!useThemeUiText && (
+          <label>
+            <span>UI text color</span>
+            <span className="color-row">
+              <input
+                type="color"
+                value={uiTextColor}
+                onChange={(e) => setUiTextColor(e.target.value)}
+                disabled={busy}
+                className="color-swatch"
+              />
+              <input
+                type="text"
+                value={uiTextColor}
+                onChange={(e) => setUiTextColor(e.target.value)}
+                disabled={busy}
+                pattern="^#[0-9a-fA-F]{6}$"
+                placeholder="#e8e6e3"
+                style={{ flex: 1, fontFamily: 'monospace' }}
+              />
+            </span>
+          </label>
+        )}
+
+        <label>
+          <span>UI brightness</span>
+          <span className="color-row">
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={uiBrightness}
+              onChange={(e) => previewUiBrightness(Number.parseInt(e.target.value, 10))}
+              disabled={busy}
+              style={{ flex: 1 }}
+            />
+            <span
+              className="muted"
+              style={{ minWidth: 44, textAlign: 'right', fontFamily: 'monospace' }}
+            >
+              {uiBrightness}%
+            </span>
+          </span>
+        </label>
+
         {error && <div className="error" role="alert">{error}</div>}
 
         <div className="actions">
@@ -372,5 +600,19 @@ export function Settings({ onClose }: Props) {
         </div>
       </form>
     </ModalBackdrop>
+    {/* Rendered as a sibling so its ModalBackdrop layers ON TOP of the
+        Settings backdrop (later-rendered DOM paints later). Closing the
+        editor returns the user to the Settings form with the in-progress
+        local state intact — including any scheme add/edit/delete just
+        performed (they're written to local customSchemes state until the
+        outer Save commits everything to the persisted settings). */}
+    {schemeEditorOpen && (
+      <SchemeEditor
+        schemes={customSchemes}
+        onChange={setCustomSchemes}
+        onClose={() => setSchemeEditorOpen(false)}
+      />
+    )}
+    </>
   )
 }

@@ -18,7 +18,7 @@ import { useProfilesStore } from './stores/profiles-store'
 import { tabFromProfile, useSessionsStore, type Tab } from './stores/sessions-store'
 import { useSettingsStore } from './stores/settings-store'
 import { useTransfersStore } from './stores/transfers-store'
-import { getEffectiveTerminalBg } from './lib/color-schemes'
+import { getEffectiveTerminalBg, getEffectiveUiFg } from './lib/color-schemes'
 import type { HostKeyPromptEvent, SessionProfile, TabLayout } from '../../shared/types'
 
 // Sidebar width is layout state — kept in renderer-side localStorage rather
@@ -115,10 +115,17 @@ export function App() {
   const loadSettings = useSettingsStore((s) => s.load)
   const settingsLoaded = useSettingsStore((s) => s.loaded)
   const theme = useSettingsStore((s) => s.terminal.theme)
-  const textColor = useSettingsStore((s) => s.terminal.textColor)
-  const fontFamily = useSettingsStore((s) => s.terminal.fontFamily)
   const colorScheme = useSettingsStore((s) => s.terminal.colorScheme)
   const sidebarBackground = useSettingsStore((s) => s.terminal.sidebarBackground)
+  const terminalBackground = useSettingsStore((s) => s.terminal.terminalBackground)
+  const customSchemes = useSettingsStore((s) => s.terminal.customSchemes)
+  const customSchemeId = useSettingsStore((s) => s.terminal.customSchemeId)
+  // UI-text tier (chrome only — distinct from terminal.fontFamily / textColor /
+  // brightness which are xterm-only after the two-tier split).
+  const uiFontFamily = useSettingsStore((s) => s.terminal.uiFontFamily)
+  const uiFontSize = useSettingsStore((s) => s.terminal.uiFontSize)
+  const uiTextColor = useSettingsStore((s) => s.terminal.uiTextColor)
+  const uiBrightness = useSettingsStore((s) => s.terminal.uiBrightness)
   const loadPlatform = usePlatformStore((s) => s.load)
   const platformLoaded = usePlatformStore((s) => s.loaded)
   useEffect(() => {
@@ -171,25 +178,32 @@ export function App() {
     return window.api.menu.onToggleSidebar(toggleSidebar)
   }, [toggleSidebar])
 
-  // User-overridden text color tweaks the --fg variable inline at the root,
-  // shadowing the theme's default for as long as it's set. Clearing the
-  // override restores the theme value.
+  // UI text color override → --fg. Either an explicit uiTextColor or a
+  // non-zero uiBrightness produces a hex string that overrides the theme's
+  // --fg in :root; otherwise the property is cleared so index.css's theme
+  // rule wins. Terminal text color (terminal.textColor) does NOT plug in
+  // here anymore — after the two-tier split, that one is xterm-only.
   useEffect(() => {
-    if (textColor) {
-      document.documentElement.style.setProperty('--fg', textColor)
+    const resolved = getEffectiveUiFg(theme, uiTextColor, uiBrightness)
+    if (resolved) {
+      document.documentElement.style.setProperty('--fg', resolved)
     } else {
       document.documentElement.style.removeProperty('--fg')
     }
-  }, [textColor])
+  }, [theme, uiTextColor, uiBrightness])
 
-  // Publish the chosen font as a CSS variable so non-terminal chrome
-  // (sidebar, tab labels, etc.) can opt into it via `font-family: var(--ui-font)`.
-  // The terminal itself doesn't read this — xterm.js applies the font directly
-  // via its options API in TerminalView. Size is intentionally NOT propagated:
-  // bumping the terminal font (Ctrl+wheel) shouldn't reflow the sidebar.
+  // Publish UI font + size as CSS variables. Chrome (MenuBar, Sidebar,
+  // TabBar, SFTP panes) reads --ui-font / --ui-font-size; xterm doesn't —
+  // it gets its own fontFamily / fontSize via term.options. Splitting these
+  // off from the terminal-font controls lets users run a monospace terminal
+  // and a proportional UI font side-by-side, and scale chrome without
+  // reflowing every open terminal grid.
   useEffect(() => {
-    document.documentElement.style.setProperty('--ui-font', fontFamily)
-  }, [fontFamily])
+    document.documentElement.style.setProperty('--ui-font', uiFontFamily)
+  }, [uiFontFamily])
+  useEffect(() => {
+    document.documentElement.style.setProperty('--ui-font-size', `${uiFontSize}px`)
+  }, [uiFontSize])
 
   // Publish --bg-terminal: the actual color xterm is painting (color scheme
   // bg when a scheme is active, otherwise the app theme's bg). The sidebar
@@ -198,9 +212,9 @@ export function App() {
   useEffect(() => {
     document.documentElement.style.setProperty(
       '--bg-terminal',
-      getEffectiveTerminalBg(theme, colorScheme),
+      getEffectiveTerminalBg(theme, colorScheme, terminalBackground, customSchemeId, customSchemes),
     )
-  }, [theme, colorScheme])
+  }, [theme, colorScheme, terminalBackground, customSchemeId, customSchemes])
 
   // Sidebar background override. When the user picks a custom color it wins
   // over --bg-terminal; clearing it falls back to "follow terminal bg".
