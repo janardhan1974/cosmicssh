@@ -25,7 +25,7 @@ function effectiveTheme(
     background: terminalBackground ?? TERMINAL_BG_DEFAULT,
     foreground: fg,
     cursor: fg,
-    selectionBackground: '#3a3a3d',
+    selectionBackground: '#264f78',
   }
   if (brightness <= 0) return base
   const t = Math.min(100, Math.max(0, brightness)) / 100
