@@ -96,87 +96,23 @@ export const AppMenuCommandSchema = z.enum([
 
 // ─── Settings ─────────────────────────────────────────────────────────────
 // Shared #RRGGBB validator — used for every persisted color slot (text
-// overrides, bg overrides, custom-scheme palettes). Single source of truth
-// for the regex + the error message.
+// overrides, bg overrides). Single source of truth for the regex + message.
 const HexColor = z
   .string()
   .regex(/^#[0-9a-fA-F]{6}$/, '#RRGGBB only')
 
-// Keep this enum in sync with ColorSchemeId in src/shared/types.ts and the
-// COLOR_SCHEMES catalog in src/renderer/src/lib/color-schemes.ts. Renderer
-// uses the catalog for the picker; main uses this enum to validate IPC
-// payloads. Adding a scheme means touching all three places.
 export const TerminalSettingsSchema = z.object({
   fontFamily: z.string().min(1),
   fontSize: z.number().int().min(6).max(48),
   theme: z.enum(['dark', 'light', 'blue']),
-  textColor: z
-    .string()
-    .regex(/^#[0-9a-fA-F]{6}$/, '#RRGGBB only')
-    .nullable(),
-  colorScheme: z.enum([
-    'default',
-    'solarized-dark',
-    'solarized-light',
-    'dracula',
-    'gruvbox-dark',
-    'gruvbox-light',
-    'nord',
-    'one-dark',
-    'monokai',
-    'tomorrow-night',
-    'github-light',
-  ]),
+  textColor: HexColor.nullable(),
   brightness: z.number().min(0).max(100),
-  sidebarBackground: z
-    .string()
-    .regex(/^#[0-9a-fA-F]{6}$/, '#RRGGBB only')
-    .nullable(),
-  terminalBackground: z
-    .string()
-    .regex(/^#[0-9a-fA-F]{6}$/, '#RRGGBB only')
-    .nullable(),
+  sidebarBackground: HexColor.nullable(),
+  terminalBackground: HexColor.nullable(),
   uiFontFamily: z.string().min(1),
   uiFontSize: z.number().int().min(6).max(48),
-  uiTextColor: z
-    .string()
-    .regex(/^#[0-9a-fA-F]{6}$/, '#RRGGBB only')
-    .nullable(),
+  uiTextColor: HexColor.nullable(),
   uiBrightness: z.number().min(0).max(100),
-  customSchemes: z
-    .array(
-      z.object({
-        id: z.string().min(1).max(64),
-        name: z.string().min(1).max(60),
-        theme: z.object({
-          background: HexColor,
-          foreground: HexColor,
-          cursor: HexColor,
-          cursorAccent: HexColor,
-          selectionBackground: HexColor,
-          black: HexColor,
-          red: HexColor,
-          green: HexColor,
-          yellow: HexColor,
-          blue: HexColor,
-          magenta: HexColor,
-          cyan: HexColor,
-          white: HexColor,
-          brightBlack: HexColor,
-          brightRed: HexColor,
-          brightGreen: HexColor,
-          brightYellow: HexColor,
-          brightBlue: HexColor,
-          brightMagenta: HexColor,
-          brightCyan: HexColor,
-          brightWhite: HexColor,
-        }),
-      }),
-    )
-    // Cap is well above any realistic user need; mostly a guard against a
-    // corrupted settings file ballooning the persisted JSON.
-    .max(50),
-  customSchemeId: z.string().max(64).nullable(),
 })
 
 // ─── SFTP / Local FS ──────────────────────────────────────────────────────

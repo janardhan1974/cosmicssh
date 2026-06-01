@@ -4,78 +4,32 @@ import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import '@xterm/xterm/css/xterm.css'
 import type { ITheme } from '@xterm/xterm'
-import { brightenHex, resolveSchemeTheme } from '../lib/color-schemes'
+import { brightenHex } from '../lib/color-schemes'
 import { registerTerminal, unregisterTerminal } from '../lib/terminal-registry'
 import { useSettingsStore } from '../stores/settings-store'
-import type { AppTheme, ColorSchemeId, CustomColorScheme } from '../../../shared/types'
 
-// Resolve the effective xterm theme from the persisted knobs. Order:
-//   1. Pick base palette — color scheme (full ITheme) OR theme + textColor.
-//   2. Apply brightness slider — lerps ONLY the foreground toward white by
-//      brightness/100. 0 = no change; 100 = pure white. Background, cursor,
-//      selection, and the 16-color ANSI palette all pass through untouched
-//      so the slider truly is "text only": no bright patches on the cursor
-//      cell, no washed-out colored output, no background shift.
-//
-// Brightness runs after the scheme so users can keep a preset they like
-// AND brighten the text without abandoning the rest of the palette.
+const TERMINAL_BG_DEFAULT = '#0f0f10'
+const TERMINAL_FG_DEFAULT = '#e8e6e3'
+
+// Build the xterm ITheme from the two direct color knobs + the brightness
+// slider (which lerps ONLY the foreground toward white, leaving background,
+// cursor, selection, and the 16-color ANSI palette untouched — no washed-out
+// colored output, no bright cursor cell, no background shift).
 function effectiveTheme(
-  theme: AppTheme,
   textColor: string | null,
-  colorScheme: ColorSchemeId,
-  brightness: number,
   terminalBackground: string | null,
-  customSchemeId: string | null,
-  customSchemes: CustomColorScheme[],
+  brightness: number,
 ): ITheme {
-  const schemeTheme = resolveSchemeTheme(colorScheme, customSchemeId, customSchemes)
-  const base: ITheme = schemeTheme
-    ? schemeTheme
-    : textColor
-      ? { ...themeForXterm(theme), foreground: textColor, cursor: textColor }
-      : themeForXterm(theme)
-  // bg override wins over everything else — when the user has chosen a
-  // literal terminal background, xterm's text bg AND --bg-terminal (App.tsx)
-  // both resolve to this color, keeping chrome and canvas in lockstep.
-  const withBg: ITheme = terminalBackground
-    ? { ...base, background: terminalBackground }
-    : base
-  if (brightness <= 0) return withBg
+  const fg = textColor ?? TERMINAL_FG_DEFAULT
+  const base: ITheme = {
+    background: terminalBackground ?? TERMINAL_BG_DEFAULT,
+    foreground: fg,
+    cursor: fg,
+    selectionBackground: '#3a3a3d',
+  }
+  if (brightness <= 0) return base
   const t = Math.min(100, Math.max(0, brightness)) / 100
-  return {
-    ...withBg,
-    foreground: withBg.foreground ? brightenHex(withBg.foreground, t) : withBg.foreground,
-  }
-}
-
-// xterm theme colors per app theme. Kept tight to a few essential keys —
-// background, foreground, cursor, selection. Everything else inherits xterm's
-// default ANSI palette.
-function themeForXterm(theme: AppTheme): ITheme {
-  switch (theme) {
-    case 'light':
-      return {
-        background: '#ffffff',
-        foreground: '#000000',
-        cursor: '#000000',
-        selectionBackground: '#c8d4ec',
-      }
-    case 'blue':
-      return {
-        background: '#eef4fa',
-        foreground: '#16263a',
-        cursor: '#16263a',
-        selectionBackground: '#b5c8db',
-      }
-    case 'dark':
-    default:
-      return {
-        background: '#0f0f10',
-        foreground: '#ffffff',
-        cursor: '#ffffff',
-        selectionBackground: '#3a3a3d',
-      }
-  }
+  return { ...base, foreground: brightenHex(base.foreground!, t) }
 }
 
 type Props = {
@@ -89,13 +43,9 @@ export function TerminalView({ sessionId, isActive }: Props) {
   const fitRef = useRef<FitAddon | null>(null)
   const fontFamily = useSettingsStore((s) => s.terminal.fontFamily)
   const fontSize = useSettingsStore((s) => s.terminal.fontSize)
-  const theme = useSettingsStore((s) => s.terminal.theme)
   const textColor = useSettingsStore((s) => s.terminal.textColor)
-  const colorScheme = useSettingsStore((s) => s.terminal.colorScheme)
   const brightness = useSettingsStore((s) => s.terminal.brightness)
   const terminalBackground = useSettingsStore((s) => s.terminal.terminalBackground)
-  const customSchemes = useSettingsStore((s) => s.terminal.customSchemes)
-  const customSchemeId = useSettingsStore((s) => s.terminal.customSchemeId)
 
   // Mount xterm once per sessionId. Stays mounted across tab switches so
   // scrollback survives — the parent hides us with display:none when inactive.
@@ -104,13 +54,9 @@ export function TerminalView({ sessionId, isActive }: Props) {
 
     const initialSettings = useSettingsStore.getState().terminal
     const initialTheme = effectiveTheme(
-      initialSettings.theme,
       initialSettings.textColor,
-      initialSettings.colorScheme,
-      initialSettings.brightness,
       initialSettings.terminalBackground,
-      initialSettings.customSchemeId,
-      initialSettings.customSchemes,
+      initialSettings.brightness,
     )
     const term = new Terminal({
       // plan.md M1 note ("windowsMode: false"): xterm v6 removed it. The v6
@@ -377,22 +323,14 @@ export function TerminalView({ sessionId, isActive }: Props) {
     fit.fit()
   }, [fontFamily, fontSize])
 
-  // Re-skin the xterm instance when any of the theme inputs change. Live so
-  // a user dragging the brightness slider or picking a new color scheme in
-  // Settings sees every open terminal re-color instantly without reconnect.
+  // Re-skin the xterm instance when any of the color inputs change. Live so
+  // a user dragging the brightness slider or picking a new color in Settings
+  // sees every open terminal re-color instantly without reconnect.
   useEffect(() => {
     const term = termRef.current
     if (!term) return
-    term.options.theme = effectiveTheme(
-      theme,
-      textColor,
-      colorScheme,
-      brightness,
-      terminalBackground,
-      customSchemeId,
-      customSchemes,
-    )
-  }, [theme, textColor, colorScheme, brightness, terminalBackground, customSchemeId, customSchemes])
+    term.options.theme = effectiveTheme(textColor, terminalBackground, brightness)
+  }, [textColor, terminalBackground, brightness])
 
   // Reclaim xterm focus on any mousedown inside the terminal area. xterm.js
   // already focuses its hidden textarea when you click ON its rendered grid,

@@ -18,7 +18,7 @@ import { useProfilesStore } from './stores/profiles-store'
 import { tabFromProfile, useSessionsStore, type Tab } from './stores/sessions-store'
 import { useSettingsStore } from './stores/settings-store'
 import { useTransfersStore } from './stores/transfers-store'
-import { getEffectiveTerminalBg, getEffectiveUiFg } from './lib/color-schemes'
+import { getEffectiveUiFg } from './lib/color-schemes'
 import type { HostKeyPromptEvent, SessionProfile, TabLayout } from '../../shared/types'
 
 // Sidebar width is layout state — kept in renderer-side localStorage rather
@@ -115,11 +115,8 @@ export function App() {
   const loadSettings = useSettingsStore((s) => s.load)
   const settingsLoaded = useSettingsStore((s) => s.loaded)
   const theme = useSettingsStore((s) => s.terminal.theme)
-  const colorScheme = useSettingsStore((s) => s.terminal.colorScheme)
   const sidebarBackground = useSettingsStore((s) => s.terminal.sidebarBackground)
   const terminalBackground = useSettingsStore((s) => s.terminal.terminalBackground)
-  const customSchemes = useSettingsStore((s) => s.terminal.customSchemes)
-  const customSchemeId = useSettingsStore((s) => s.terminal.customSchemeId)
   // UI-text tier (chrome only — distinct from terminal.fontFamily / textColor /
   // brightness which are xterm-only after the two-tier split).
   const uiFontFamily = useSettingsStore((s) => s.terminal.uiFontFamily)
@@ -205,16 +202,14 @@ export function App() {
     document.documentElement.style.setProperty('--ui-font-size', `${uiFontSize}px`)
   }, [uiFontSize])
 
-  // Publish --bg-terminal: the actual color xterm is painting (color scheme
-  // bg when a scheme is active, otherwise the app theme's bg). The sidebar
-  // default and the SFTP window read this so they visually match whatever
-  // the terminal looks like.
+  // Publish --bg-terminal: the color xterm is painting. The sidebar default
+  // and the SFTP window read this so they visually match the terminal.
   useEffect(() => {
     document.documentElement.style.setProperty(
       '--bg-terminal',
-      getEffectiveTerminalBg(theme, colorScheme, terminalBackground, customSchemeId, customSchemes),
+      terminalBackground ?? '#0f0f10',
     )
-  }, [theme, colorScheme, terminalBackground, customSchemeId, customSchemes])
+  }, [terminalBackground])
 
   // Sidebar background override. When the user picks a custom color it wins
   // over --bg-terminal; clearing it falls back to "follow terminal bg".

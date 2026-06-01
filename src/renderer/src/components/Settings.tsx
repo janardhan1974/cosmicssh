@@ -1,14 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useSettingsStore } from '../stores/settings-store'
-import {
-  APP_THEMES,
-  type AppTheme,
-  type ColorSchemeId,
-  type CustomColorScheme,
-} from '../../../shared/types'
-import { COLOR_SCHEMES } from '../lib/color-schemes'
 import { ModalBackdrop } from './ModalBackdrop'
-import { SchemeEditor } from './SchemeEditor'
 
 type Props = {
   onClose: () => void
@@ -121,14 +113,11 @@ export function Settings({ onClose }: Props) {
   const [useThemeUiText, setUseThemeUiText] = useState(current.uiTextColor === null)
   const [uiTextColor, setUiTextColor] = useState<string>(current.uiTextColor ?? '#e8e6e3')
   const [uiBrightness, setUiBrightness] = useState<number>(current.uiBrightness)
-  const [theme, setThemeLocal] = useState<AppTheme>(current.theme)
-  const [colorScheme, setColorScheme] = useState<ColorSchemeId>(current.colorScheme)
-  const [customSchemes, setCustomSchemes] = useState<CustomColorScheme[]>(current.customSchemes)
-  const [customSchemeId, setCustomSchemeIdLocal] = useState<string | null>(current.customSchemeId)
-  const [schemeEditorOpen, setSchemeEditorOpen] = useState(false)
   const [brightness, setBrightness] = useState<number>(current.brightness)
-  const [useThemeText, setUseThemeText] = useState(current.textColor === null)
   const [textColor, setTextColor] = useState<string>(current.textColor ?? '#e8e6e3')
+  const [terminalBackground, setTerminalBackground] = useState<string>(
+    current.terminalBackground ?? '#0f0f10',
+  )
   // null = sidebar follows terminal bg (the default). The hex input keeps its
   // last value across the checkbox toggle so re-enabling the override doesn't
   // wipe what the user picked.
@@ -138,24 +127,8 @@ export function Settings({ onClose }: Props) {
   const [sidebarBackground, setSidebarBackground] = useState<string>(
     current.sidebarBackground ?? '#131317',
   )
-  // null = terminal/sftp bg follows the color scheme + theme (default).
-  // Toggling off exposes a color picker for a literal override that wins
-  // over scheme + theme. SFTP and the sidebar default both follow this via
-  // --bg-terminal, so picking a color here reskins all three at once.
-  const [terminalFollowsScheme, setTerminalFollowsScheme] = useState(
-    current.terminalBackground === null,
-  )
-  const [terminalBackground, setTerminalBackground] = useState<string>(
-    current.terminalBackground ?? '#0f0f10',
-  )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  // When a color scheme is selected the scheme provides the full xterm
-  // palette, so the textColor override is muted in the UI. Saving anyway
-  // preserves the user's prior textColor pick so it comes back if they
-  // switch the scheme back to 'default'.
-  const schemeOverridesText = colorScheme !== 'default'
 
   // Live brightness preview: push the value into the store immediately so all
   // open terminals re-skin while the user drags. No IPC write — that only
@@ -204,24 +177,15 @@ export function Settings({ onClose }: Props) {
       await setTerminal({
         fontFamily,
         fontSize,
-        theme,
-        colorScheme,
+        theme: current.theme,
         brightness,
-        textColor: useThemeText ? null : textColor,
+        textColor,
         sidebarBackground: sidebarFollowsTerminal ? null : sidebarBackground,
-        terminalBackground: terminalFollowsScheme ? null : terminalBackground,
+        terminalBackground,
         uiFontFamily,
         uiFontSize,
         uiTextColor: useThemeUiText ? null : uiTextColor,
         uiBrightness,
-        customSchemes,
-        // Reset customSchemeId if it points at a scheme that's been deleted
-        // since selection — otherwise a stale id sticks around in storage
-        // even though the picker shows it as gone.
-        customSchemeId:
-          customSchemeId && customSchemes.some((s) => s.id === customSchemeId)
-            ? customSchemeId
-            : null,
       })
       onClose()
     } catch (err) {
@@ -234,7 +198,6 @@ export function Settings({ onClose }: Props) {
   }
 
   return (
-    <>
     <ModalBackdrop onClose={onClose}>
       <form
         className="modal settings-modal"
@@ -246,59 +209,58 @@ export function Settings({ onClose }: Props) {
           on a per-terminal basis.
         </p>
 
-        {/* Color scheme picker. The select shows both built-in schemes AND
-            the user's custom schemes (separated visually with a disabled
-            "── Custom" optgroup-style row). When a custom is picked,
-            customSchemeId is set; picking a built-in clears it. We KEEP
-            the previously-selected built-in colorScheme value across a
-            custom selection so removing a custom drops back to it. */}
+        {/* Terminal & SFTP background. A literal color pushed into xterm's
+            theme.background and published as --bg-terminal, so the SFTP pane
+            (and the sidebar, by default) repaint in lockstep with it. */}
         <label>
-          <span>Color scheme</span>
-          <span style={{ display: 'flex', gap: 6 }}>
-            <select
-              value={customSchemeId ?? colorScheme}
-              onChange={(e) => {
-                const v = e.target.value
-                if (v.startsWith('custom-')) {
-                  setCustomSchemeIdLocal(v)
-                } else {
-                  setCustomSchemeIdLocal(null)
-                  setColorScheme(v as ColorSchemeId)
-                }
-              }}
+          <span>Terminal &amp; SFTP background</span>
+          <span className="color-row">
+            <input
+              type="color"
+              value={terminalBackground}
+              onChange={(e) => setTerminalBackground(e.target.value)}
               disabled={busy}
-              style={{ flex: 1 }}
-            >
-              <optgroup label="Built-in">
-                {COLOR_SCHEMES.map((s) => (
-                  <option key={s.id} value={s.id}>{s.label}</option>
-                ))}
-              </optgroup>
-              {customSchemes.length > 0 && (
-                <optgroup label="Custom">
-                  {customSchemes.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
-            <button
-              type="button"
-              onClick={() => setSchemeEditorOpen(true)}
+              className="color-swatch"
+            />
+            <input
+              type="text"
+              value={terminalBackground}
+              onChange={(e) => setTerminalBackground(e.target.value)}
               disabled={busy}
-              title="Create, edit or delete your own color schemes"
-            >
-              Manage…
-            </button>
+              pattern="^#[0-9a-fA-F]{6}$"
+              placeholder="#0f0f10"
+              style={{ flex: 1, fontFamily: 'monospace' }}
+            />
           </span>
         </label>
 
-        {/* Text brightness — lerps the resolved foreground toward white.
-            Strictly foreground only: background, cursor, selection, and the
-            ANSI palette are unaffected so colored output doesn't wash out
-            and the cursor cell doesn't flash bright. Live-previews via the
-            store; only Save persists it. Works in both default and scheme
-            modes — keep a preset AND brighten its text. */}
+        {/* Terminal text color — the xterm foreground (and cursor). */}
+        <label>
+          <span>Text color</span>
+          <span className="color-row">
+            <input
+              type="color"
+              value={textColor}
+              onChange={(e) => setTextColor(e.target.value)}
+              disabled={busy}
+              className="color-swatch"
+            />
+            <input
+              type="text"
+              value={textColor}
+              onChange={(e) => setTextColor(e.target.value)}
+              disabled={busy}
+              pattern="^#[0-9a-fA-F]{6}$"
+              placeholder="#e8e6e3"
+              style={{ flex: 1, fontFamily: 'monospace' }}
+            />
+          </span>
+        </label>
+
+        {/* Text brightness — lerps the foreground toward white. Strictly
+            foreground only: background, cursor, and selection pass through
+            untouched so colored output doesn't wash out. Live-previews via
+            the store; only Save persists it. */}
         <label>
           <span>Text brightness</span>
           <span className="color-row">
@@ -321,63 +283,10 @@ export function Settings({ onClose }: Props) {
           </span>
         </label>
 
-        <label>
-          <span>Theme</span>
-          <select
-            value={theme}
-            onChange={(e) => setThemeLocal(e.target.value as AppTheme)}
-            disabled={busy}
-          >
-            {APP_THEMES.map((t) => (
-              <option key={t.value} value={t.value}>{t.label}</option>
-            ))}
-          </select>
-        </label>
-
-        {/* Terminal / SFTP background. Default ("follow color scheme") keeps
-            the legacy pathway: bg = scheme bg, falling back to theme bg.
-            Toggling it off exposes a literal color picker that wins over
-            both. SFTP follows the same value (it reads --bg-terminal), so
-            this single control re-skins both panes simultaneously. */}
-        <label className="checkbox">
-          <input
-            type="checkbox"
-            checked={terminalFollowsScheme}
-            onChange={(e) => setTerminalFollowsScheme(e.target.checked)}
-            disabled={busy}
-          />
-          <span>Terminal &amp; SFTP background follows color scheme</span>
-        </label>
-
-        {!terminalFollowsScheme && (
-          <label>
-            <span>Terminal &amp; SFTP background</span>
-            <span className="color-row">
-              <input
-                type="color"
-                value={terminalBackground}
-                onChange={(e) => setTerminalBackground(e.target.value)}
-                disabled={busy}
-                className="color-swatch"
-              />
-              <input
-                type="text"
-                value={terminalBackground}
-                onChange={(e) => setTerminalBackground(e.target.value)}
-                disabled={busy}
-                pattern="^#[0-9a-fA-F]{6}$"
-                placeholder="#0f0f10"
-                style={{ flex: 1, fontFamily: 'monospace' }}
-              />
-            </span>
-          </label>
-        )}
-
         {/* Sidebar background. Default ("follow terminal") leaves the sidebar
-            tracking whatever color xterm is painting — including active color
-            schemes and the terminal-bg override above. Toggling it off
-            exposes a color picker for a literal override that wins over
-            theme, scheme, AND the terminal-bg override. */}
+            tracking whatever color xterm is painting. Toggling it off exposes
+            a color picker for a literal override that wins over the terminal
+            background. */}
         <label className="checkbox">
           <input
             type="checkbox"
@@ -410,52 +319,6 @@ export function Settings({ onClose }: Props) {
               />
             </span>
           </label>
-        )}
-
-        {/* Text-color override only meaningful when no scheme is active —
-            otherwise the scheme owns the full palette. Hidden (not disabled)
-            so the modal stays compact when a preset is selected. */}
-        {!schemeOverridesText && (
-          <label className="checkbox">
-            <input
-              type="checkbox"
-              checked={useThemeText}
-              onChange={(e) => setUseThemeText(e.target.checked)}
-              disabled={busy}
-            />
-            <span>Text color follows theme</span>
-          </label>
-        )}
-
-        {!schemeOverridesText && !useThemeText && (
-          <label>
-            <span>Text color</span>
-            <span className="color-row">
-              <input
-                type="color"
-                value={textColor}
-                onChange={(e) => setTextColor(e.target.value)}
-                disabled={busy}
-                className="color-swatch"
-              />
-              <input
-                type="text"
-                value={textColor}
-                onChange={(e) => setTextColor(e.target.value)}
-                disabled={busy}
-                pattern="^#[0-9a-fA-F]{6}$"
-                placeholder="#e8e6e3"
-                style={{ flex: 1, fontFamily: 'monospace' }}
-              />
-            </span>
-          </label>
-        )}
-
-        {schemeOverridesText && (
-          <p className="muted" style={{ marginTop: '-4px' }}>
-            Color scheme owns the full terminal palette — text color override
-            doesn't apply. Switch to "Default" to enable it again.
-          </p>
         )}
 
         <label>
@@ -600,19 +463,5 @@ export function Settings({ onClose }: Props) {
         </div>
       </form>
     </ModalBackdrop>
-    {/* Rendered as a sibling so its ModalBackdrop layers ON TOP of the
-        Settings backdrop (later-rendered DOM paints later). Closing the
-        editor returns the user to the Settings form with the in-progress
-        local state intact — including any scheme add/edit/delete just
-        performed (they're written to local customSchemes state until the
-        outer Save commits everything to the persisted settings). */}
-    {schemeEditorOpen && (
-      <SchemeEditor
-        schemes={customSchemes}
-        onChange={setCustomSchemes}
-        onClose={() => setSchemeEditorOpen(false)}
-      />
-    )}
-    </>
   )
 }
