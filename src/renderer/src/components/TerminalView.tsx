@@ -11,6 +11,49 @@ import { useSettingsStore } from '../stores/settings-store'
 const TERMINAL_BG_DEFAULT = '#0f0f10'
 const TERMINAL_FG_DEFAULT = '#e8e6e3'
 
+// BT.709 relative luminance of a #rrggbb hex color.
+function relativeLuminance(hex: string): number {
+  const m = /^#([0-9a-fA-F]{6})$/.exec(hex)
+  if (!m) return 0.5
+  const n = parseInt(m[1]!, 16)
+  const toLinear = (v: number) => {
+    const s = v / 255
+    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+  }
+  return (
+    0.2126 * toLinear((n >> 16) & 0xff) +
+    0.7152 * toLinear((n >> 8) & 0xff) +
+    0.0722 * toLinear(n & 0xff)
+  )
+}
+
+// Blend a #rrggbb color toward pure white (target=255) or pure black (target=0)
+// by fraction t ∈ [0,1].
+function blendToward(hex: string, target: 0 | 255, t: number): string {
+  const m = /^#([0-9a-fA-F]{6})$/.exec(hex)
+  if (!m) return '#888888'
+  const n = parseInt(m[1]!, 16)
+  const lerp = (v: number) => Math.round(v + (target - v) * t)
+  const h = (v: number) => lerp(v).toString(16).padStart(2, '0')
+  return `#${h((n >> 16) & 0xff)}${h((n >> 8) & 0xff)}${h(n & 0xff)}`
+}
+
+// Derive a selection-background colour that keeps selected text legible.
+// Three cases based on perceived luminance:
+//   dark fg  (e.g. #1707f2, deep blues, dark reds):
+//     lighten the terminal bg significantly → dark text stays readable.
+//   light/medium fg on dark bg:
+//     fixed mid-blue (#264f78) contrasts well against both.
+//   any fg on light bg:
+//     darken the selection so it's clearly distinct from the bg.
+function selectionBg(bg: string, fg: string): string {
+  const fgLum = relativeLuminance(fg)
+  const bgLum = relativeLuminance(bg)
+  if (fgLum < 0.35) return blendToward(bg, 255, 0.70)
+  if (bgLum < 0.5)  return '#264f78'
+  return blendToward(bg, 0, 0.35)
+}
+
 // Build the xterm ITheme from the two direct color knobs + the brightness
 // slider (which lerps ONLY the foreground toward white, leaving background,
 // cursor, selection, and the 16-color ANSI palette untouched — no washed-out
@@ -20,12 +63,13 @@ function effectiveTheme(
   terminalBackground: string | null,
   brightness: number,
 ): ITheme {
+  const bg = terminalBackground ?? TERMINAL_BG_DEFAULT
   const fg = textColor ?? TERMINAL_FG_DEFAULT
   const base: ITheme = {
-    background: terminalBackground ?? TERMINAL_BG_DEFAULT,
+    background: bg,
     foreground: fg,
     cursor: fg,
-    selectionBackground: '#264f78',
+    selectionBackground: selectionBg(bg, fg),
   }
   if (brightness <= 0) return base
   const t = Math.min(100, Math.max(0, brightness)) / 100
