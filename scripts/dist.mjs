@@ -9,23 +9,31 @@
 // configured, so electron-builder would have skipped signing anyway.
 
 import { spawnSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import process from 'node:process'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, resolve } from 'node:path'
+import { createRequire } from 'node:module'
 
 process.env.CSC_IDENTITY_AUTO_DISCOVERY = 'false'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const root = resolve(here, '..')
 
-// On Windows npm puts .cmd wrappers in .bin/; spawnSync needs the extension.
-const ext = process.platform === 'win32' ? '.cmd' : ''
-const bin = resolve(root, 'node_modules', '.bin', `electron-builder${ext}`)
+// Resolve electron-builder's JS CLI entry directly instead of going through
+// the .cmd wrapper in node_modules/.bin/. The wrapper approach breaks on
+// Windows when the repo path contains spaces (OneDrive etc.) because
+// spawnSync + .cmd + spaces triggers an EINVAL bug in Node's child_process.
+// Running via process.execPath (node) bypasses the issue entirely.
+const require = createRequire(pathToFileURL(root + '/'))
+const ebPkgPath = require.resolve('electron-builder/package.json')
+const ebPkg = JSON.parse(readFileSync(ebPkgPath, 'utf8'))
+const cliPath = resolve(dirname(ebPkgPath), ebPkg.bin['electron-builder'])
 
 const [target, ...rest] = process.argv.slice(2)
 const args = ['--win', ...(target ? [target] : []), ...rest]
 
-const result = spawnSync(bin, args, {
+const result = spawnSync(process.execPath, [cliPath, ...args], {
   stdio: 'inherit',
   env: process.env,
   cwd: root,
