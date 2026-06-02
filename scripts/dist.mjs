@@ -17,19 +17,23 @@ process.env.CSC_IDENTITY_AUTO_DISCOVERY = 'false'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const root = resolve(here, '..')
-const bin = resolve(root, 'node_modules', '.bin', 'electron-builder')
 
-// argv[2] is the optional target name (e.g. "portable", "nsis").
-// argv[3] onwards are additional flags.
+// On Windows npm puts .cmd wrappers in .bin/; spawnSync needs the extension.
+const ext = process.platform === 'win32' ? '.cmd' : ''
+const bin = resolve(root, 'node_modules', '.bin', `electron-builder${ext}`)
+
 const [target, ...rest] = process.argv.slice(2)
-
 const args = ['--win', ...(target ? [target] : []), ...rest]
 
 const result = spawnSync(bin, args, {
   stdio: 'inherit',
   env: process.env,
-  // electron-builder needs the repo root as cwd so it finds electron-builder.yml
   cwd: root,
 })
+
+if (result.error) {
+  console.error('dist.mjs: failed to launch electron-builder:', result.error.message)
+  process.exit(1)
+}
 
 process.exit(result.status ?? 1)
