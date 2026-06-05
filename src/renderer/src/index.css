@@ -586,7 +586,11 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 }
 .tab:hover { color: var(--fg); background: var(--bg-elevated); }
 .tab.active {
-  background: var(--bg);
+  /* When a chrome override is active the active tab merges with the bar strip
+     (same color); the accent border at the bottom marks the terminal boundary.
+     Without an override, falls back to --bg so the active tab merges downward
+     into the terminal area (the classic "no-bar" look). */
+  background: var(--bg-chrome-override, var(--bg));
   color: var(--fg);
   /* Bright accent outline on all four sides — overrides the base --border
      for top/sides, and fills in the bottom (which the base sets to none).
