@@ -117,6 +117,7 @@ export function App() {
   const theme = useSettingsStore((s) => s.terminal.theme)
   const sidebarBackground = useSettingsStore((s) => s.terminal.sidebarBackground)
   const terminalBackground = useSettingsStore((s) => s.terminal.terminalBackground)
+  const chromeBackground = useSettingsStore((s) => s.terminal.chromeBackground)
   // UI-text tier (chrome only — distinct from terminal.fontFamily / textColor /
   // brightness which are xterm-only after the two-tier split).
   const uiFontFamily = useSettingsStore((s) => s.terminal.uiFontFamily)
@@ -220,6 +221,15 @@ export function App() {
       document.documentElement.style.removeProperty('--bg-sidebar-override')
     }
   }, [sidebarBackground])
+
+  // Menubar + tab bar background override. null = theme tokens.
+  useEffect(() => {
+    if (chromeBackground) {
+      document.documentElement.style.setProperty('--bg-chrome-override', chromeBackground)
+    } else {
+      document.documentElement.style.removeProperty('--bg-chrome-override')
+    }
+  }, [chromeBackground])
 
   // Global subscriber: keep tab status in sync with main's lifecycle events.
   // Per-terminal close/error rendering still happens inside TerminalView.

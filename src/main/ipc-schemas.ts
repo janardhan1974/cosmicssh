@@ -109,6 +109,7 @@ export const TerminalSettingsSchema = z.object({
   brightness: z.number().min(0).max(100),
   sidebarBackground: HexColor.nullable(),
   terminalBackground: HexColor.nullable(),
+  chromeBackground: HexColor.nullable(),
   uiFontFamily: z.string().min(1),
   uiFontSize: z.number().int().min(6).max(48),
   uiTextColor: HexColor.nullable(),

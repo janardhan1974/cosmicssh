@@ -127,6 +127,12 @@ export function Settings({ onClose }: Props) {
   const [sidebarBackground, setSidebarBackground] = useState<string>(
     current.sidebarBackground ?? '#131317',
   )
+  const [chromeFollowsTheme, setChromeFollowsTheme] = useState(
+    current.chromeBackground === null,
+  )
+  const [chromeBackground, setChromeBackground] = useState<string>(
+    current.chromeBackground ?? '#131317',
+  )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -182,6 +188,7 @@ export function Settings({ onClose }: Props) {
         textColor,
         sidebarBackground: sidebarFollowsTerminal ? null : sidebarBackground,
         terminalBackground,
+        chromeBackground: chromeFollowsTheme ? null : chromeBackground,
         uiFontFamily,
         uiFontSize,
         uiTextColor: useThemeUiText ? null : uiTextColor,
@@ -312,6 +319,40 @@ export function Settings({ onClose }: Props) {
                 type="text"
                 value={sidebarBackground}
                 onChange={(e) => setSidebarBackground(e.target.value)}
+                disabled={busy}
+                pattern="^#[0-9a-fA-F]{6}$"
+                placeholder="#131317"
+                style={{ flex: 1, fontFamily: 'monospace' }}
+              />
+            </span>
+          </label>
+        )}
+
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={chromeFollowsTheme}
+            onChange={(e) => setChromeFollowsTheme(e.target.checked)}
+            disabled={busy}
+          />
+          <span>Menubar &amp; tab bar use theme colors</span>
+        </label>
+
+        {!chromeFollowsTheme && (
+          <label>
+            <span>Menubar &amp; tab bar background</span>
+            <span className="color-row">
+              <input
+                type="color"
+                value={chromeBackground}
+                onChange={(e) => setChromeBackground(e.target.value)}
+                disabled={busy}
+                className="color-swatch"
+              />
+              <input
+                type="text"
+                value={chromeBackground}
+                onChange={(e) => setChromeBackground(e.target.value)}
                 disabled={busy}
                 pattern="^#[0-9a-fA-F]{6}$"
                 placeholder="#131317"

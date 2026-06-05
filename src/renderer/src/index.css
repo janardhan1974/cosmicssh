@@ -151,7 +151,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   align-items: stretch;
   gap: 0;
   flex-shrink: 0;
-  background: var(--bg-sidebar);
+  background: var(--bg-chrome-override, var(--bg-sidebar));
   border-bottom: 1px solid var(--border);
   font-family: var(--ui-font);
   font-size: var(--ui-font-size, 12px);
@@ -535,7 +535,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   /* 2px breathing room between tabs replaces the old border-right separator;
      keeps the rounded tops from butting into each other. */
   gap: 2px;
-  background: var(--bg-panel);
+  background: var(--bg-chrome-override, var(--bg-panel));
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
   font-family: var(--ui-font, inherit);

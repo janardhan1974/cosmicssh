@@ -292,6 +292,8 @@ export type TerminalSettings = {
   // value is the literal CSS color pushed into xterm's theme.background and
   // published as --bg-terminal so the SFTP pane follows it.
   terminalBackground: string | null
+  // Override for the menubar + tab bar background. null = use theme tokens.
+  chromeBackground: string | null
   // ─── UI text (chrome) ───────────────────────────────────────────────────
   // Decoupled from the terminal-text controls above so a user can run a
   // monospace terminal font alongside a proportional UI font, scale chrome
@@ -317,6 +319,7 @@ export const DEFAULT_TERMINAL_SETTINGS: TerminalSettings = {
   brightness: 0,
   sidebarBackground: null,
   terminalBackground: null,
+  chromeBackground: null,
   uiFontFamily: '"Cascadia Mono", Consolas, "Courier New", monospace',
   uiFontSize: 12,
   uiTextColor: null,
