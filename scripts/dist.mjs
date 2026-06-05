@@ -58,32 +58,3 @@ if (result.error) {
 }
 
 process.exit(result.status ?? 1)
-
-const here = dirname(fileURLToPath(import.meta.url))
-const root = resolve(here, '..')
-
-// Resolve electron-builder's JS CLI entry directly instead of going through
-// the .cmd wrapper in node_modules/.bin/. The wrapper approach breaks on
-// Windows when the repo path contains spaces (OneDrive etc.) because
-// spawnSync + .cmd + spaces triggers an EINVAL bug in Node's child_process.
-// Running via process.execPath (node) bypasses the issue entirely.
-const require = createRequire(pathToFileURL(root + '/'))
-const ebPkgPath = require.resolve('electron-builder/package.json')
-const ebPkg = JSON.parse(readFileSync(ebPkgPath, 'utf8'))
-const cliPath = resolve(dirname(ebPkgPath), ebPkg.bin['electron-builder'])
-
-const [target, ...rest] = process.argv.slice(2)
-const args = ['--win', ...(target ? [target] : []), ...rest]
-
-const result = spawnSync(process.execPath, [cliPath, ...args], {
-  stdio: 'inherit',
-  env: process.env,
-  cwd: root,
-})
-
-if (result.error) {
-  console.error('dist.mjs: failed to launch electron-builder:', result.error.message)
-  process.exit(1)
-}
-
-process.exit(result.status ?? 1)
