@@ -115,7 +115,6 @@ export function App() {
   const loadSettings = useSettingsStore((s) => s.load)
   const settingsLoaded = useSettingsStore((s) => s.loaded)
   const theme = useSettingsStore((s) => s.terminal.theme)
-  const sidebarBackground = useSettingsStore((s) => s.terminal.sidebarBackground)
   const terminalBackground = useSettingsStore((s) => s.terminal.terminalBackground)
   const chromeBackground = useSettingsStore((s) => s.terminal.chromeBackground)
   // UI-text tier (chrome only — distinct from terminal.fontFamily / textColor /
@@ -212,17 +211,7 @@ export function App() {
     )
   }, [terminalBackground])
 
-  // Sidebar background override. When the user picks a custom color it wins
-  // over --bg-terminal; clearing it falls back to "follow terminal bg".
-  useEffect(() => {
-    if (sidebarBackground) {
-      document.documentElement.style.setProperty('--bg-sidebar-override', sidebarBackground)
-    } else {
-      document.documentElement.style.removeProperty('--bg-sidebar-override')
-    }
-  }, [sidebarBackground])
-
-  // Menubar + tab bar background override. null = theme tokens.
+  // Chrome background override (menubar + sidebar + tab bar). null = theme tokens.
   useEffect(() => {
     if (chromeBackground) {
       document.documentElement.style.setProperty('--bg-chrome-override', chromeBackground)

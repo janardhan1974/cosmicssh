@@ -152,28 +152,18 @@ export function Settings({ onClose }: Props) {
   const [fontSize, setFontSize] = useState(current.fontSize)
   const [uiFontFamily, setUiFontFamily] = useState(current.uiFontFamily)
   const [uiFontSize, setUiFontSize] = useState(current.uiFontSize)
-  const [useThemeUiText, setUseThemeUiText] = useState(current.uiTextColor === null)
+  // null = follow CSS theme variable. Hex string = custom override.
+  const [useCustomUiBg, setUseCustomUiBg] = useState(current.chromeBackground !== null)
+  const [chromeBackground, setChromeBackground] = useState<string>(
+    current.chromeBackground ?? '#131317',
+  )
+  const [useCustomUiText, setUseCustomUiText] = useState(current.uiTextColor !== null)
   const [uiTextColor, setUiTextColor] = useState<string>(current.uiTextColor ?? '#e8e6e3')
   const [uiBrightness, setUiBrightness] = useState<number>(current.uiBrightness)
   const [brightness, setBrightness] = useState<number>(current.brightness)
   const [textColor, setTextColor] = useState<string>(current.textColor ?? '#e8e6e3')
   const [terminalBackground, setTerminalBackground] = useState<string>(
     current.terminalBackground ?? '#0f0f10',
-  )
-  // null = sidebar follows terminal bg (the default). The hex input keeps its
-  // last value across the checkbox toggle so re-enabling the override doesn't
-  // wipe what the user picked.
-  const [sidebarFollowsTerminal, setSidebarFollowsTerminal] = useState(
-    current.sidebarBackground === null,
-  )
-  const [sidebarBackground, setSidebarBackground] = useState<string>(
-    current.sidebarBackground ?? '#131317',
-  )
-  const [chromeFollowsTheme, setChromeFollowsTheme] = useState(
-    current.chromeBackground === null,
-  )
-  const [chromeBackground, setChromeBackground] = useState<string>(
-    current.chromeBackground ?? '#131317',
   )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -228,12 +218,12 @@ export function Settings({ onClose }: Props) {
         theme: current.theme,
         brightness,
         textColor,
-        sidebarBackground: sidebarFollowsTerminal ? null : sidebarBackground,
+        sidebarBackground: null,
         terminalBackground,
-        chromeBackground: chromeFollowsTheme ? null : chromeBackground,
+        chromeBackground: useCustomUiBg ? chromeBackground : null,
         uiFontFamily,
         uiFontSize,
-        uiTextColor: useThemeUiText ? null : uiTextColor,
+        uiTextColor: useCustomUiText ? uiTextColor : null,
         uiBrightness,
       })
       onClose()
@@ -248,141 +238,24 @@ export function Settings({ onClose }: Props) {
 
   return (
     <ModalBackdrop onClose={onClose}>
-      <form
-        className="modal settings-modal"
-        onSubmit={handleSubmit}
-      >
-        <h2>Terminal settings</h2>
-        <p className="muted">
-          Applies live. Use Ctrl + scroll wheel (or Ctrl + = / − / 0) to zoom
-          on a per-terminal basis.
-        </p>
+      <form className="modal settings-modal" onSubmit={handleSubmit}>
+        <h2>Display settings</h2>
 
-        {/* Terminal & SFTP background. A literal color pushed into xterm's
-            theme.background and published as --bg-terminal, so the SFTP pane
-            (and the sidebar, by default) repaint in lockstep with it. */}
-        <label>
-          <span>Terminal &amp; SFTP background</span>
-          <span className="color-row">
-            <input
-              type="color"
-              value={terminalBackground}
-              onChange={(e) => setTerminalBackground(e.target.value)}
-              disabled={busy}
-              className="color-swatch"
-            />
-            <input
-              type="text"
-              value={terminalBackground}
-              onChange={(e) => setTerminalBackground(e.target.value)}
-              disabled={busy}
-              pattern="^#[0-9a-fA-F]{6}$"
-              placeholder="#0f0f10"
-              style={{ flex: 1, fontFamily: 'monospace' }}
-            />
-          </span>
-        </label>
-
-        {/* Terminal text color — the xterm foreground (and cursor). */}
-        <label>
-          <span>Text color</span>
-          <span className="color-row">
-            <input
-              type="color"
-              value={textColor}
-              onChange={(e) => setTextColor(e.target.value)}
-              disabled={busy}
-              className="color-swatch"
-            />
-            <input
-              type="text"
-              value={textColor}
-              onChange={(e) => setTextColor(e.target.value)}
-              disabled={busy}
-              pattern="^#[0-9a-fA-F]{6}$"
-              placeholder="#e8e6e3"
-              style={{ flex: 1, fontFamily: 'monospace' }}
-            />
-          </span>
-        </label>
-
-        {/* Text brightness — lerps the foreground toward white. Strictly
-            foreground only: background, cursor, and selection pass through
-            untouched so colored output doesn't wash out. Live-previews via
-            the store; only Save persists it. */}
-        <label>
-          <span>Text brightness</span>
-          <span className="color-row">
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={1}
-              value={brightness}
-              onChange={(e) => previewBrightness(Number.parseInt(e.target.value, 10))}
-              disabled={busy}
-              style={{ flex: 1 }}
-            />
-            <span
-              className="muted"
-              style={{ minWidth: 44, textAlign: 'right', fontFamily: 'monospace' }}
-            >
-              {brightness}%
-            </span>
-          </span>
-        </label>
-
-        {/* Sidebar background. Default ("follow terminal") leaves the sidebar
-            tracking whatever color xterm is painting. Toggling it off exposes
-            a color picker for a literal override that wins over the terminal
-            background. */}
-        <label className="checkbox">
-          <input
-            type="checkbox"
-            checked={sidebarFollowsTerminal}
-            onChange={(e) => setSidebarFollowsTerminal(e.target.checked)}
-            disabled={busy}
-          />
-          <span>Sidebar background follows terminal</span>
-        </label>
-
-        {!sidebarFollowsTerminal && (
-          <label>
-            <span>Sidebar background</span>
-            <span className="color-row">
-              <input
-                type="color"
-                value={sidebarBackground}
-                onChange={(e) => setSidebarBackground(e.target.value)}
-                disabled={busy}
-                className="color-swatch"
-              />
-              <input
-                type="text"
-                value={sidebarBackground}
-                onChange={(e) => setSidebarBackground(e.target.value)}
-                disabled={busy}
-                pattern="^#[0-9a-fA-F]{6}$"
-                placeholder="#131317"
-                style={{ flex: 1, fontFamily: 'monospace' }}
-              />
-            </span>
-          </label>
-        )}
+        {/* ── Menubar · Sidebar · Tab bar ─────────────────────────────── */}
+        <h3>Menubar · Sidebar · Tab bar</h3>
 
         <label className="checkbox">
           <input
             type="checkbox"
-            checked={chromeFollowsTheme}
-            onChange={(e) => setChromeFollowsTheme(e.target.checked)}
+            checked={useCustomUiBg}
+            onChange={(e) => setUseCustomUiBg(e.target.checked)}
             disabled={busy}
           />
-          <span>Menubar &amp; tab bar use theme colors</span>
+          <span>Background</span>
         </label>
-
-        {!chromeFollowsTheme && (
+        {useCustomUiBg && (
           <label>
-            <span>Menubar &amp; tab bar background</span>
+            <span />
             <span className="color-row">
               <input
                 type="color"
@@ -404,95 +277,18 @@ export function Settings({ onClose }: Props) {
           </label>
         )}
 
-        <label>
-          <span>Font</span>
-          <select
-            value={fontFamily}
-            onChange={(e) => setFontFamily(e.target.value)}
-            disabled={busy}
-          >
-            {choices.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
-                {c.note ? `  —  ${c.note}` : ''}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label>
-          <span>Size</span>
-          <select
-            value={fontSize}
-            onChange={(e) => setFontSize(Number.parseInt(e.target.value, 10))}
-            disabled={busy}
-          >
-            {FONT_SIZES.map((s) => (
-              <option key={s} value={s}>{s}px</option>
-            ))}
-          </select>
-        </label>
-
-        <div
-          className="font-preview"
-          style={{ fontFamily, fontSize: `${fontSize}px` }}
-        >
-          {'$ ssh user@host\n[user@host ~]$ vim README.md  # 1234567890'}
-        </div>
-
-        {/* ─── UI text (chrome) ──────────────────────────────────────────
-            Independent controls for the non-terminal chrome — menu bar,
-            sidebar, tab labels, SFTP panes. Decoupled from the terminal
-            tier above so a monospace terminal + proportional UI font is a
-            single picker change. */}
-        <h3 style={{ marginTop: 18, marginBottom: 4 }}>UI text (chrome)</h3>
-        <p className="muted" style={{ marginTop: 0 }}>
-          Applies to the menu bar, sidebar, tab bar and SFTP panes — not
-          the terminal.
-        </p>
-
-        <label>
-          <span>UI font</span>
-          <select
-            value={uiFontFamily}
-            onChange={(e) => setUiFontFamily(e.target.value)}
-            disabled={busy}
-          >
-            {uiChoices.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
-                {c.note ? `  —  ${c.note}` : ''}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label>
-          <span>UI size</span>
-          <select
-            value={uiFontSize}
-            onChange={(e) => setUiFontSize(Number.parseInt(e.target.value, 10))}
-            disabled={busy}
-          >
-            {FONT_SIZES.map((s) => (
-              <option key={s} value={s}>{s}px</option>
-            ))}
-          </select>
-        </label>
-
         <label className="checkbox">
           <input
             type="checkbox"
-            checked={useThemeUiText}
-            onChange={(e) => setUseThemeUiText(e.target.checked)}
+            checked={useCustomUiText}
+            onChange={(e) => setUseCustomUiText(e.target.checked)}
             disabled={busy}
           />
-          <span>UI text color follows theme</span>
+          <span>Text</span>
         </label>
-
-        {!useThemeUiText && (
+        {useCustomUiText && (
           <label>
-            <span>UI text color</span>
+            <span />
             <span className="color-row">
               <input
                 type="color"
@@ -515,7 +311,35 @@ export function Settings({ onClose }: Props) {
         )}
 
         <label>
-          <span>UI brightness</span>
+          <span>Text font</span>
+          <select
+            value={uiFontFamily}
+            onChange={(e) => setUiFontFamily(e.target.value)}
+            disabled={busy}
+          >
+            {uiChoices.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}{c.note ? `  —  ${c.note}` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          <span>Text size</span>
+          <select
+            value={uiFontSize}
+            onChange={(e) => setUiFontSize(Number.parseInt(e.target.value, 10))}
+            disabled={busy}
+          >
+            {FONT_SIZES.map((s) => (
+              <option key={s} value={s}>{s}px</option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          <span>Text brightness</span>
           <span className="color-row">
             <input
               type="range"
@@ -527,14 +351,109 @@ export function Settings({ onClose }: Props) {
               disabled={busy}
               style={{ flex: 1 }}
             />
-            <span
-              className="muted"
-              style={{ minWidth: 44, textAlign: 'right', fontFamily: 'monospace' }}
-            >
+            <span className="muted" style={{ minWidth: 44, textAlign: 'right', fontFamily: 'monospace' }}>
               {uiBrightness}%
             </span>
           </span>
         </label>
+
+        {/* ── Terminal & SFTP ─────────────────────────────────────────── */}
+        <h3 style={{ marginTop: 20 }}>Terminal &amp; SFTP</h3>
+
+        <label>
+          <span>Background</span>
+          <span className="color-row">
+            <input
+              type="color"
+              value={terminalBackground}
+              onChange={(e) => setTerminalBackground(e.target.value)}
+              disabled={busy}
+              className="color-swatch"
+            />
+            <input
+              type="text"
+              value={terminalBackground}
+              onChange={(e) => setTerminalBackground(e.target.value)}
+              disabled={busy}
+              pattern="^#[0-9a-fA-F]{6}$"
+              placeholder="#0f0f10"
+              style={{ flex: 1, fontFamily: 'monospace' }}
+            />
+          </span>
+        </label>
+
+        <label>
+          <span>Text</span>
+          <span className="color-row">
+            <input
+              type="color"
+              value={textColor}
+              onChange={(e) => setTextColor(e.target.value)}
+              disabled={busy}
+              className="color-swatch"
+            />
+            <input
+              type="text"
+              value={textColor}
+              onChange={(e) => setTextColor(e.target.value)}
+              disabled={busy}
+              pattern="^#[0-9a-fA-F]{6}$"
+              placeholder="#e8e6e3"
+              style={{ flex: 1, fontFamily: 'monospace' }}
+            />
+          </span>
+        </label>
+
+        <label>
+          <span>Text font</span>
+          <select
+            value={fontFamily}
+            onChange={(e) => setFontFamily(e.target.value)}
+            disabled={busy}
+          >
+            {choices.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}{c.note ? `  —  ${c.note}` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          <span>Text size</span>
+          <select
+            value={fontSize}
+            onChange={(e) => setFontSize(Number.parseInt(e.target.value, 10))}
+            disabled={busy}
+          >
+            {FONT_SIZES.map((s) => (
+              <option key={s} value={s}>{s}px</option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          <span>Text brightness</span>
+          <span className="color-row">
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={brightness}
+              onChange={(e) => previewBrightness(Number.parseInt(e.target.value, 10))}
+              disabled={busy}
+              style={{ flex: 1 }}
+            />
+            <span className="muted" style={{ minWidth: 44, textAlign: 'right', fontFamily: 'monospace' }}>
+              {brightness}%
+            </span>
+          </span>
+        </label>
+
+        <div className="font-preview" style={{ fontFamily, fontSize: `${fontSize}px` }}>
+          {'$ ssh user@host\n[user@host ~]$ vim README.md  # 1234567890'}
+        </div>
 
         {error && <div className="error" role="alert">{error}</div>}
 

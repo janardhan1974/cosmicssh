@@ -258,14 +258,15 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 
 /* ─── Sidebar ─────────────────────────────────────────────────────────── */
 /* Background resolution (App.tsx publishes these):
-   1. --bg-sidebar-override — set when the user picked a custom color in
-      Settings → "Sidebar background". Wins outright.
-   2. --bg-terminal — the color xterm is actually painting (scheme bg, or app
-      theme bg). This is the default so the sidebar matches the terminal.
-   3. --bg-sidebar — final fallback (the theme token) for the brief window
-      before App publishes --bg-terminal on mount. */
+   1. --bg-chrome-override — set when the user picks a custom background for
+      the menubar/sidebar/tab bar group. Sidebar follows the same override so
+      all chrome surfaces share one colour control.
+   2. --bg-terminal — the color xterm is painting. Default: sidebar matches
+      terminal so a dark terminal gets a dark sidebar.
+   3. --bg-sidebar — theme token fallback for the brief window before App
+      publishes --bg-terminal on mount. */
 .sidebar {
-  background: var(--bg-sidebar-override, var(--bg-terminal, var(--bg-sidebar)));
+  background: var(--bg-chrome-override, var(--bg-terminal, var(--bg-sidebar)));
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
