@@ -1341,7 +1341,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   font: inherit;
   font-size: 14px;
   padding: 7px 10px;
-  background: var(--bg);
+  background: var(--bg-chrome-hover, var(--bg));
   color: var(--fg);
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -1355,7 +1355,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .modal .font-preview {
   white-space: pre;
   padding: 10px 12px;
-  background: var(--bg);
+  background: var(--bg-chrome-hover, var(--bg));
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--fg);
@@ -1439,7 +1439,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   bottom: -16px;
   margin: 8px -20px -16px;
   padding: 10px 20px;
-  background: var(--bg-panel);
+  background: var(--bg-chrome-override, var(--bg-panel));
   border-top: 1px solid var(--border);
 }
 
