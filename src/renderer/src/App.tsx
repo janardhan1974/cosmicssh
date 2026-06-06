@@ -175,17 +175,22 @@ export function App() {
     return window.api.menu.onToggleSidebar(toggleSidebar)
   }, [toggleSidebar])
 
-  // UI text color override → --fg. Either an explicit uiTextColor or a
-  // non-zero uiBrightness produces a hex string that overrides the theme's
-  // --fg in :root; otherwise the property is cleared so index.css's theme
-  // rule wins. Terminal text color (terminal.textColor) does NOT plug in
-  // here anymore — after the two-tier split, that one is xterm-only.
+  // UI text color override → --fg and --fg-soft. Either an explicit
+  // uiTextColor or a non-zero uiBrightness produces a hex string that
+  // overrides the theme's --fg / --fg-soft in :root; otherwise the
+  // properties are cleared so index.css's theme rules win. --fg-soft is the
+  // color the menu bar buttons use at rest (they brighten to --fg on hover);
+  // setting it to the same resolved value means menu items honour the chosen
+  // text colour. Terminal text color (terminal.textColor) does NOT plug in
+  // here — after the two-tier split, that one is xterm-only.
   useEffect(() => {
     const resolved = getEffectiveUiFg(theme, uiTextColor, uiBrightness)
     if (resolved) {
       document.documentElement.style.setProperty('--fg', resolved)
+      document.documentElement.style.setProperty('--fg-soft', resolved)
     } else {
       document.documentElement.style.removeProperty('--fg')
+      document.documentElement.style.removeProperty('--fg-soft')
     }
   }, [theme, uiTextColor, uiBrightness])
 
