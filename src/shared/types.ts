@@ -42,6 +42,7 @@ export const IPC_MENU_TOGGLE_SIDEBAR = 'menu:toggle-sidebar' as const
 // the WebContents, full-screen, About dialog, etc.). Single dispatcher
 // channel keyed by command string — avoids one IPC per item.
 export const IPC_APP_MENU_COMMAND = 'app:menu-command' as const
+export const IPC_WINDOW_SET_TITLE_BAR_OVERLAY = 'window:set-title-bar-overlay' as const
 export type AppMenuCommand =
   | 'new-window'
   | 'tile-windows-v'
@@ -499,6 +500,9 @@ export interface Api {
     // when the action has been kicked off — most are best-effort and don't
     // surface a meaningful result.
     menuCommand: (cmd: AppMenuCommand) => Promise<void>
+    // Updates the Windows Controls Overlay (title bar) colour. No-op on
+    // non-Windows. Pass null to revert to the theme default.
+    setTitleBarOverlay: (color: string | null) => Promise<void>
   }
   profiles: {
     list: () => Promise<SessionProfile[]>

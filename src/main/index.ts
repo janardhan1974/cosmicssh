@@ -2,10 +2,14 @@ import { app, BrowserWindow, Menu, dialog, ipcMain, nativeImage, screen } from '
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { BUILD_DATE_DISPLAY, BUILD_VERSION } from './build-info'
-import { AppMenuCommandSchema, validate } from './ipc-schemas'
+import { AppMenuCommandSchema, TitleBarColorSchema, validate } from './ipc-schemas'
 import { registerIpcHandlers } from './ipc-handlers'
 import { resolveStorageDir } from './storage-dir'
-import { IPC_APP_MENU_COMMAND, type AppMenuCommand } from '../shared/types'
+import {
+  IPC_APP_MENU_COMMAND,
+  IPC_WINDOW_SET_TITLE_BAR_OVERLAY,
+  type AppMenuCommand,
+} from '../shared/types'
 
 // Relocate userData to live next to the .exe (portable layout) BEFORE any
 // store is constructed. ProfileStore / SettingsStore / CredentialVault /
@@ -40,6 +44,20 @@ function createWindow(): void {
     height: 800,
     show: false,
     backgroundColor: '#0f0f10',
+    // Hide the native OS title bar so our custom TitleBar.tsx fills that area
+    // with the correct chrome background. On Windows, titleBarOverlay keeps the
+    // close/minimise/maximise buttons (Windows Controls Overlay). On Linux the
+    // bar simply disappears — acceptable for the secondary target.
+    titleBarStyle: 'hidden',
+    ...(process.platform === 'win32'
+      ? {
+          titleBarOverlay: {
+            color: '#131317',     // matches dark-theme --bg-sidebar default
+            symbolColor: '#cccccc',
+            height: 32,
+          },
+        }
+      : {}),
     // No native menu — the renderer ships its own themable menu bar via
     // MenuBar.tsx. autoHideMenuBar:true keeps Alt from re-summoning the
     // (now empty) OS menu strip and stealing a row of vertical space.
@@ -269,6 +287,31 @@ ipcMain.handle(IPC_APP_MENU_COMMAND, (event, raw) => {
       if (win) win.close()
       return
   }
+})
+
+// Returns true when a #rrggbb colour has enough brightness that black symbols
+// are legible on it (used to pick the WCO button icon colour).
+function isLightColor(hex: string): boolean {
+  const m = /^#([0-9a-fA-F]{6})$/.exec(hex)
+  if (!m) return false
+  const n = parseInt(m[1]!, 16)
+  const r = (n >> 16) & 0xff
+  const g = (n >> 8) & 0xff
+  const b = n & 0xff
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.5
+}
+
+ipcMain.handle(IPC_WINDOW_SET_TITLE_BAR_OVERLAY, (event, raw) => {
+  if (process.platform !== 'win32') return
+  const color = validate(TitleBarColorSchema, raw)
+  const win = BrowserWindow.fromWebContents(event.sender)
+  if (!win) return
+  const bg = color ?? '#131317'
+  win.setTitleBarOverlay({
+    color: bg,
+    symbolColor: isLightColor(bg) ? '#000000' : '#cccccc',
+    height: 32,
+  })
 })
 
 void app.whenReady().then(() => {
