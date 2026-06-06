@@ -320,7 +320,7 @@ export const DEFAULT_TERMINAL_SETTINGS: TerminalSettings = {
   sidebarBackground: null,
   terminalBackground: null,
   chromeBackground: null,
-  uiFontFamily: '"Cascadia Mono", Consolas, "Courier New", monospace',
+  uiFontFamily: '"Segoe UI", system-ui, -apple-system, sans-serif',
   uiFontSize: 12,
   uiTextColor: null,
   uiBrightness: 0,

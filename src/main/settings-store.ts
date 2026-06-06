@@ -23,16 +23,17 @@ export class SettingsStore {
     // crashing the renderer on undefined.
     const stored = this.store.get('terminal') as Partial<TerminalSettings>
     const merged: TerminalSettings = { ...DEFAULT_TERMINAL_SETTINGS, ...stored }
-    // First-launch migration to the two-tier text split: chrome used to
-    // follow terminal.fontFamily / terminal.textColor automatically. After
-    // the split those are terminal-only; copy them over to the new ui*
-    // fields when they're missing so existing users don't see their sidebar
-    // snap to a different font on upgrade.
-    if (stored.uiFontFamily === undefined && stored.fontFamily) {
-      merged.uiFontFamily = stored.fontFamily
-    }
+    // Migration: uiTextColor used to default to null (follow theme). Copy the
+    // terminal textColor on first upgrade so existing chrome color carries over.
     if (stored.uiTextColor === undefined && stored.textColor !== undefined) {
       merged.uiTextColor = stored.textColor
+    }
+    // Migration: early builds defaulted uiFontFamily to the monospace terminal
+    // font (or copied it from fontFamily on upgrade). Reset to the system UI
+    // font if the stored value is the old monospace default — a user who
+    // intentionally picked a proportional font would have a different value.
+    if (merged.uiFontFamily === '"Cascadia Mono", Consolas, "Courier New", monospace') {
+      merged.uiFontFamily = DEFAULT_TERMINAL_SETTINGS.uiFontFamily
     }
     return merged
   }

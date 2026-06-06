@@ -70,6 +70,51 @@ const FONT_CHOICES: FontChoice[] = [
   },
 ]
 
+// Proportional fonts for the UI chrome (menu bar, sidebar, tabs). System fonts
+// first; a couple of monospace entries at the end for users who prefer it.
+const UI_FONT_CHOICES: FontChoice[] = [
+  {
+    label: 'Segoe UI',
+    value: '"Segoe UI", system-ui, -apple-system, sans-serif',
+    note: 'Default — Windows system font',
+  },
+  {
+    label: 'Calibri',
+    value: 'Calibri, "Segoe UI", sans-serif',
+    note: 'Ships with Windows / Office',
+  },
+  {
+    label: 'Arial',
+    value: 'Arial, "Helvetica Neue", sans-serif',
+    note: 'Built into Windows',
+  },
+  {
+    label: 'Verdana',
+    value: 'Verdana, Geneva, sans-serif',
+    note: 'Built into Windows',
+  },
+  {
+    label: 'Tahoma',
+    value: 'Tahoma, Geneva, sans-serif',
+    note: 'Built into Windows',
+  },
+  {
+    label: 'Trebuchet MS',
+    value: '"Trebuchet MS", sans-serif',
+    note: 'Built into Windows',
+  },
+  {
+    label: 'Cascadia Mono',
+    value: '"Cascadia Mono", Consolas, monospace',
+    note: 'Monospace',
+  },
+  {
+    label: 'Consolas',
+    value: 'Consolas, monospace',
+    note: 'Monospace',
+  },
+]
+
 const FONT_SIZES = [10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24]
 
 export function Settings({ onClose }: Props) {
@@ -94,15 +139,12 @@ export function Settings({ onClose }: Props) {
       ...FONT_CHOICES,
     ]
   }, [current.fontFamily])
-  // Same custom-first treatment for the UI font picker. Note this also
-  // catches the post-migration case where uiFontFamily was carried over from
-  // an old terminal.fontFamily that isn't in FONT_CHOICES.
   const uiChoices = useMemo<FontChoice[]>(() => {
-    const matched = FONT_CHOICES.find((f) => f.value === current.uiFontFamily)
-    if (matched) return FONT_CHOICES
+    const matched = UI_FONT_CHOICES.find((f) => f.value === current.uiFontFamily)
+    if (matched) return UI_FONT_CHOICES
     return [
       { label: `Custom — ${current.uiFontFamily}`, value: current.uiFontFamily, note: 'Saved previously' },
-      ...FONT_CHOICES,
+      ...UI_FONT_CHOICES,
     ]
   }, [current.uiFontFamily])
 
