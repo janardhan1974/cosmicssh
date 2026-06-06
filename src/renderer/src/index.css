@@ -173,11 +173,11 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   font-size: inherit;
 }
 .menu-bar-button:hover {
-  background: var(--bg-elevated);
+  background: var(--bg-chrome-hover, var(--bg-elevated));
   color: var(--fg);
 }
 .menu-bar-button.open {
-  background: var(--bg-elevated);
+  background: var(--bg-chrome-hover, var(--bg-elevated));
   color: var(--fg);
 }
 
@@ -464,7 +464,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   min-width: 0;
   position: relative;
 }
-.profile-row:hover { background: var(--bg-elevated); }
+.profile-row:hover { background: var(--bg-chrome-hover, var(--bg-elevated)); }
 
 /* Horizontal tree branch from the vertical guide to each profile row. */
 .profile-row::before {
@@ -584,7 +584,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   border-radius: 0 2px 2px 0;
   background: var(--tab-accent, transparent);
 }
-.tab:hover { color: var(--fg); background: var(--bg-elevated); }
+.tab:hover { color: var(--fg); background: var(--bg-chrome-hover, var(--bg-elevated)); }
 .tab.active {
   /* When a chrome override is active the active tab merges with the bar strip
      (same color); the accent border at the bottom marks the terminal boundary.

@@ -18,7 +18,7 @@ import { useProfilesStore } from './stores/profiles-store'
 import { tabFromProfile, useSessionsStore, type Tab } from './stores/sessions-store'
 import { useSettingsStore } from './stores/settings-store'
 import { useTransfersStore } from './stores/transfers-store'
-import { getEffectiveUiFg } from './lib/color-schemes'
+import { getEffectiveUiFg, darkenHex } from './lib/color-schemes'
 import type { HostKeyPromptEvent, SessionProfile, TabLayout } from '../../shared/types'
 
 // Sidebar width is layout state — kept in renderer-side localStorage rather
@@ -221,11 +221,16 @@ export function App() {
   }, [terminalBackground])
 
   // Chrome background override (menubar + sidebar + tab bar). null = theme tokens.
+  // Also publishes --bg-chrome-hover as a 12%-darkened version for hover states
+  // so sidebar rows and menu buttons don't flash the theme's dark --bg-elevated
+  // over a light custom background.
   useEffect(() => {
     if (chromeBackground) {
       document.documentElement.style.setProperty('--bg-chrome-override', chromeBackground)
+      document.documentElement.style.setProperty('--bg-chrome-hover', darkenHex(chromeBackground, 0.12))
     } else {
       document.documentElement.style.removeProperty('--bg-chrome-override')
+      document.documentElement.style.removeProperty('--bg-chrome-hover')
     }
   }, [chromeBackground])
 

@@ -1,5 +1,22 @@
 import type { AppTheme } from '../../../shared/types'
 
+// Lerp an #rrggbb color toward white (t>0) or black (t<0) by |t| in [0,1].
+// 0 returns the input unchanged; 1 toward white returns #ffffff; -1 toward
+// black returns #000000. Anything other than a six-digit hex falls through
+// unchanged so an unexpected value can't crash the merge.
+export function darkenHex(hex: string, t: number): string {
+  if (t <= 0) return hex
+  const m = /^#([0-9a-fA-F]{6})$/.exec(hex)
+  if (!m) return hex
+  const n = parseInt(m[1]!, 16)
+  const r = (n >> 16) & 0xff
+  const g = (n >> 8) & 0xff
+  const b = n & 0xff
+  const lerp = (v: number) => Math.round(v * (1 - t))
+  const hh = (v: number) => v.toString(16).padStart(2, '0')
+  return `#${hh(lerp(r))}${hh(lerp(g))}${hh(lerp(b))}`
+}
+
 // Lerp an #rrggbb color toward white by `t` in [0,1]. 0 returns the input
 // unchanged; 1 returns #ffffff. Used by both the terminal foreground-brightness
 // slider and the UI-brightness slider — anything other than a six-digit hex
