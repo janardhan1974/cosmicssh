@@ -188,7 +188,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   z-index: 1000;
   min-width: 220px;
   padding: 4px 0;
-  background: var(--bg-panel);
+  background: var(--bg-chrome-override, var(--bg-panel));
   border: 1px solid var(--border-strong);
   border-radius: 4px;
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
@@ -494,7 +494,6 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 }
 
 .profile-name {
-  font-size: 13px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -504,7 +503,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   max-width: 55%;
 }
 .profile-meta {
-  font-size: 12px;
+  font-size: 0.9em;
   color: var(--fg-muted);
   white-space: nowrap;
   overflow: hidden;

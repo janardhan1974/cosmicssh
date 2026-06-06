@@ -188,9 +188,13 @@ export function App() {
     if (resolved) {
       document.documentElement.style.setProperty('--fg', resolved)
       document.documentElement.style.setProperty('--fg-soft', resolved)
+      document.documentElement.style.setProperty('--fg-muted', resolved)
+      document.documentElement.style.setProperty('--fg-subtle', resolved)
     } else {
       document.documentElement.style.removeProperty('--fg')
       document.documentElement.style.removeProperty('--fg-soft')
+      document.documentElement.style.removeProperty('--fg-muted')
+      document.documentElement.style.removeProperty('--fg-subtle')
     }
   }, [theme, uiTextColor, uiBrightness])
 
