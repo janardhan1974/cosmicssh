@@ -87,11 +87,10 @@ export function SftpIcon({ size = 16, className }: Props) {
 
 // ─── Sidebar profile-row icons ──────────────────────────────────────────
 // Bright + distinctive at 14–18px so SSH and SFTP-only profiles read at a
-// glance in the sidebar tree. Different shapes (rectangle + stand vs disc)
-// so they're discernible even on a tiny resolution.
+// glance in the sidebar tree.
 
-// Computer / monitor — used for SSH profiles.
-export function ComputerIcon({ size = 16, className }: Props) {
+// Penguin — used for SSH profiles (Linux server mascot).
+export function PenguinIcon({ size = 16, className }: Props) {
   return (
     <svg
       width={size}
@@ -101,29 +100,32 @@ export function ComputerIcon({ size = 16, className }: Props) {
       className={className}
       aria-hidden="true"
     >
-      {/* Monitor outer frame */}
-      <rect x="1.5" y="3" width="21" height="14" rx="2" fill="#2d3142" stroke="#5a6688" strokeWidth="0.8" />
-      {/* Screen */}
-      <rect x="2.8" y="4.2" width="18.4" height="11.6" rx="0.8" fill="#0a1424" />
-      {/* Screen "code" lines — alternating green / cyan to evoke a terminal */}
-      <rect x="4.5" y="6" width="10" height="0.9" rx="0.3" fill="#7ce38b" />
-      <rect x="4.5" y="8" width="6" height="0.8" rx="0.2" fill="#5af0d8" />
-      <rect x="4.5" y="9.5" width="13" height="0.8" rx="0.2" fill="#7ce38b" />
-      <rect x="4.5" y="11" width="8" height="0.8" rx="0.2" fill="#5af0d8" />
-      <rect x="4.5" y="12.5" width="11" height="0.8" rx="0.2" fill="#7ce38b" />
-      {/* Caret cursor */}
-      <rect x="13.8" y="12.5" width="1.6" height="0.9" fill="#febc2e" />
-      {/* Stand */}
-      <rect x="10" y="17.2" width="4" height="2.3" fill="#5a6688" />
-      {/* Base */}
-      <rect x="6.5" y="19.5" width="11" height="1.6" rx="0.4" fill="#5a6688" />
+      {/* Head */}
+      <circle cx="12" cy="8" r="5.5" fill="#1a2035" />
+      {/* Body */}
+      <ellipse cx="12" cy="17.5" rx="6.5" ry="5.5" fill="#1a2035" />
+      {/* White belly */}
+      <ellipse cx="12" cy="18" rx="4" ry="4.5" fill="#e8e8dc" />
+      {/* Left eye white */}
+      <circle cx="10" cy="7" r="1.8" fill="#e8e8dc" />
+      {/* Left pupil */}
+      <circle cx="10.3" cy="7.2" r="1" fill="#1a2035" />
+      {/* Right eye white */}
+      <circle cx="14" cy="7" r="1.8" fill="#e8e8dc" />
+      {/* Right pupil */}
+      <circle cx="14.3" cy="7.2" r="1" fill="#1a2035" />
+      {/* Beak — orange triangle pointing down */}
+      <polygon points="10.5,10 13.5,10 12,12.5" fill="#f97316" />
+      {/* Left foot */}
+      <ellipse cx="9.5" cy="22.5" rx="2.2" ry="0.8" fill="#f97316" />
+      {/* Right foot */}
+      <ellipse cx="14.5" cy="22.5" rx="2.2" ry="0.8" fill="#f97316" />
     </svg>
   )
 }
 
-// Globe — used for SFTP-only profiles. Says "remote / over-the-wire" and
-// looks visually distinct from the Computer at small sizes.
-export function GlobeIcon({ size = 16, className }: Props) {
+// Parrot — used for SFTP-only / FTP profiles. Colourful tropical bird.
+export function ParrotIcon({ size = 16, className }: Props) {
   return (
     <svg
       width={size}
@@ -133,36 +135,29 @@ export function GlobeIcon({ size = 16, className }: Props) {
       className={className}
       aria-hidden="true"
     >
-      {/* Ocean */}
-      <circle cx="12" cy="12" r="9.5" fill="#1d6db8" stroke="#0e4a7f" strokeWidth="0.8" />
-      {/* Subtle top-left highlight */}
-      <ellipse cx="9" cy="8.5" rx="5" ry="3" fill="#3a8fd0" opacity="0.55" />
-      {/* Continents — three irregular green blobs */}
+      {/* Body — green */}
+      <ellipse cx="13" cy="16.5" rx="6" ry="5.5" fill="#16a34a" />
+      {/* Head — bright green */}
+      <circle cx="12" cy="8.5" r="5" fill="#22c55e" />
+      {/* Red crown patch */}
+      <path d="M9 5.5 Q12 2.5 15 5.5 Q13 7.5 12 7 Q11 7.5 9 5.5Z" fill="#dc2626" />
+      {/* Eye — yellow ring + dark pupil */}
+      <circle cx="14.5" cy="8.5" r="2" fill="#fef9c3" />
+      <circle cx="14.7" cy="8.6" r="1.1" fill="#1e293b" />
+      {/* Beak — yellow, hooked downward */}
       <path
-        d="M4.5 10 Q6.5 7.5 9 9 Q11.5 10.5 8.5 12 Q6.5 12.5 5 11 Q4 10.7 4.5 10 Z"
-        fill="#5fbf4f"
-        stroke="#3a8c30"
-        strokeWidth="0.35"
+        d="M10.5 10 Q9 11.5 9.5 13 Q11 14 12.5 12.5 Q11 12.5 10.5 10Z"
+        fill="#eab308"
       />
+      {/* Wing — blue accent on left */}
       <path
-        d="M11 14 Q13.5 13 16 14.5 Q18 16 15.5 17 Q13 17.5 11.5 16.5 Q10.5 15.5 11 14 Z"
-        fill="#5fbf4f"
-        stroke="#3a8c30"
-        strokeWidth="0.35"
+        d="M8 13.5 Q5.5 17 7 21 Q9.5 22.5 11.5 20.5 Q10 17.5 9.5 14.5Z"
+        fill="#3b82f6"
       />
-      <path
-        d="M16.5 6 Q18.5 5.5 19.5 7 Q19.5 8.5 17.5 8.2 Q15.8 7.8 16.5 6 Z"
-        fill="#5fbf4f"
-        stroke="#3a8c30"
-        strokeWidth="0.35"
-      />
-      {/* Latitude lines */}
-      <ellipse cx="12" cy="12" rx="9.5" ry="3" fill="none" stroke="#ffffff" strokeWidth="0.5" opacity="0.45" />
-      <ellipse cx="12" cy="12" rx="9.5" ry="6" fill="none" stroke="#ffffff" strokeWidth="0.4" opacity="0.32" />
-      {/* Longitude */}
-      <ellipse cx="12" cy="12" rx="3.2" ry="9.5" fill="none" stroke="#ffffff" strokeWidth="0.5" opacity="0.5" />
-      {/* Crisp outer outline */}
-      <circle cx="12" cy="12" r="9.5" fill="none" stroke="#0a3a6a" strokeWidth="0.6" />
+      {/* Tail feathers */}
+      <line x1="10" y1="21.5" x2="8.5" y2="24" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" />
+      <line x1="12" y1="22" x2="12" y2="24.5" stroke="#3b82f6" strokeWidth="1.8" strokeLinecap="round" />
+      <line x1="14" y1="21.5" x2="15.5" y2="24" stroke="#dc2626" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   )
 }

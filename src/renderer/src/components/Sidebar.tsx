@@ -2,7 +2,7 @@ import { memo, useEffect, useRef, useState } from 'react'
 import { groupProfiles, useProfilesStore } from '../stores/profiles-store'
 import type { SessionProfile } from '../../../shared/types'
 import { ContextMenu, type ContextMenuItem } from './ContextMenu'
-import { ComputerIcon, GlobeIcon } from './icons'
+import { PenguinIcon, ParrotIcon } from './icons'
 import { InputPrompt } from './InputPrompt'
 
 type MenuState =
@@ -359,8 +359,8 @@ function SidebarImpl({ onConnect, onEdit, onNewProfile, onOpenSettings, onHide }
                         <div className="profile-row rename-mode">
                           <span className="profile-icon">
                             {profile.protocol === 'sftp-only'
-                              ? <GlobeIcon size={18} />
-                              : <ComputerIcon size={18} />}
+                              ? <ParrotIcon size={18} />
+                              : <PenguinIcon size={18} />}
                           </span>
                           <span className="profile-text">
                             <RenameInput
@@ -402,8 +402,8 @@ function SidebarImpl({ onConnect, onEdit, onNewProfile, onOpenSettings, onHide }
                         >
                           <span className="profile-icon">
                             {profile.protocol === 'sftp-only'
-                              ? <GlobeIcon size={18} />
-                              : <ComputerIcon size={18} />}
+                              ? <ParrotIcon size={18} />
+                              : <PenguinIcon size={18} />}
                           </span>
                           <span className="profile-text">
                             <span className="profile-name">
