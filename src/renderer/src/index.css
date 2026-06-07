@@ -123,30 +123,6 @@ button {
 }
 button:disabled { cursor: not-allowed; opacity: 0.5; }
 
-/* ─── Custom title bar (replaces hidden native OS title bar) ─────────────
-   Draggable strip at the very top of the window. On Windows the OS-drawn
-   close/min/max buttons appear as Windows Controls Overlay on top of this
-   strip — padding-right leaves that 150px area clear so they don't overlap
-   the app name. Background and text colour follow the chrome group so it
-   matches the sidebar/menubar. */
-.title-bar {
-  height: 32px;
-  display: flex;
-  align-items: center;
-  padding: 0 12px;
-  padding-right: 155px; /* clear Windows Controls Overlay buttons */
-  background: var(--bg-chrome-override, var(--bg-sidebar));
-  -webkit-app-region: drag;
-  user-select: none;
-  flex-shrink: 0;
-  font-family: var(--ui-font, inherit);
-  font-size: var(--ui-font-size, 12px);
-  color: var(--fg-soft);
-}
-.title-bar-text {
-  pointer-events: none; /* drag region blocks events; text needs none too */
-}
-
 /* ─── Top-level shell ─────────────────────────────────────────────────── */
 /* Outer container that stacks the custom MenuBar above the grid. height:100%
    so the inner .app-shell can still flex to fill what remains. */

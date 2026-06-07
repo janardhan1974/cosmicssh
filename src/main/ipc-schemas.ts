@@ -4,12 +4,6 @@
 
 import { z } from 'zod'
 
-// ─── Window ────────────────────────────────────────────────────────────────
-export const TitleBarColorSchema = z
-  .string()
-  .regex(/^#[0-9a-fA-F]{6}$/)
-  .nullable()
-
 // ─── SSH ───────────────────────────────────────────────────────────────────
 export const ConnectPayloadSchema = z.object({
   host: z.string().min(1, 'host is required'),

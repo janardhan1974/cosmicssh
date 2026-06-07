@@ -2,12 +2,11 @@ import { app, BrowserWindow, Menu, dialog, ipcMain, nativeImage, screen } from '
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { BUILD_DATE_DISPLAY, BUILD_VERSION } from './build-info'
-import { AppMenuCommandSchema, TitleBarColorSchema, validate } from './ipc-schemas'
+import { AppMenuCommandSchema, validate } from './ipc-schemas'
 import { registerIpcHandlers } from './ipc-handlers'
 import { resolveStorageDir } from './storage-dir'
 import {
   IPC_APP_MENU_COMMAND,
-  IPC_WINDOW_SET_TITLE_BAR_OVERLAY,
   type AppMenuCommand,
 } from '../shared/types'
 
@@ -44,14 +43,6 @@ function createWindow(): void {
     height: 800,
     show: false,
     backgroundColor: '#0f0f10',
-    // Hide the native OS title bar so our custom TitleBar.tsx fills that area.
-    // On Windows we also enable the Windows Controls Overlay (close/min/max
-    // buttons) — but we pass just `true` here to avoid the object-form
-    // constructor path that can silently fail on some Windows configs and
-    // prevent the window from ever appearing. Colours are applied separately
-    // below via setTitleBarOverlay() wrapped in its own try-catch.
-    titleBarStyle: 'hidden',
-    ...(process.platform === 'win32' ? { titleBarOverlay: true } : {}),
     // No native menu — the renderer ships its own themable menu bar via
     // MenuBar.tsx. autoHideMenuBar:true keeps Alt from re-summoning the
     // (now empty) OS menu strip and stealing a row of vertical space.
@@ -65,23 +56,12 @@ function createWindow(): void {
     },
   })
 
-  // Apply initial WCO colours separately so a failure here never prevents the
-  // window from showing (unlike a throw inside the constructor above).
-  if (process.platform === 'win32') {
-    try {
-      win.setTitleBarOverlay({ color: '#131317', symbolColor: '#cccccc', height: 32 })
-    } catch {
-      // WCO styling unavailable on this system; window still shows with the
-      // default overlay colours.
-    }
-  }
-
   appWindows.add(win)
   win.on('closed', () => appWindows.delete(win))
 
-  // Failsafe: if ready-to-show hasn't fired after 8 s (page stall, renderer
-  // crash, etc.) force the window visible so the user isn't left with a
-  // process in Task Manager and no window.
+  // Failsafe: force the window visible after 8 s if ready-to-show hasn't
+  // fired (page stall, renderer crash, etc.) so the process never stays
+  // invisible in Task Manager with no window to interact with.
   const showTimer = setTimeout(() => { if (!win.isDestroyed()) win.show() }, 8000)
   win.once('ready-to-show', () => {
     clearTimeout(showTimer)
@@ -299,31 +279,6 @@ ipcMain.handle(IPC_APP_MENU_COMMAND, (event, raw) => {
       if (win) win.close()
       return
   }
-})
-
-// Returns true when a #rrggbb colour has enough brightness that black symbols
-// are legible on it (used to pick the WCO button icon colour).
-function isLightColor(hex: string): boolean {
-  const m = /^#([0-9a-fA-F]{6})$/.exec(hex)
-  if (!m) return false
-  const n = parseInt(m[1]!, 16)
-  const r = (n >> 16) & 0xff
-  const g = (n >> 8) & 0xff
-  const b = n & 0xff
-  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.5
-}
-
-ipcMain.handle(IPC_WINDOW_SET_TITLE_BAR_OVERLAY, (event, raw) => {
-  if (process.platform !== 'win32') return
-  const color = validate(TitleBarColorSchema, raw)
-  const win = BrowserWindow.fromWebContents(event.sender)
-  if (!win) return
-  const bg = color ?? '#131317'
-  win.setTitleBarOverlay({
-    color: bg,
-    symbolColor: isLightColor(bg) ? '#000000' : '#cccccc',
-    height: 32,
-  })
 })
 
 void app.whenReady().then(() => {

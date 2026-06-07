@@ -117,8 +117,6 @@ const CH = {
   // session logging
   loggingStatus: 'logging:status',
   loggingSaveScrollback: 'logging:save-scrollback',
-  // window chrome
-  windowSetTitleBarOverlay: 'window:set-title-bar-overlay',
 } as const
 
 function subscribe<T>(channel: string, cb: (payload: T) => void): Unsubscribe {
@@ -159,8 +157,6 @@ const api: Api = {
   app: {
     menuCommand: (cmd: AppMenuCommand): Promise<void> =>
       ipcRenderer.invoke(CH.appMenuCommand, cmd),
-    setTitleBarOverlay: (color: string | null): Promise<void> =>
-      ipcRenderer.invoke(CH.windowSetTitleBarOverlay, color),
   },
   profiles: {
     list: (): Promise<SessionProfile[]> => ipcRenderer.invoke(CH.profilesList),

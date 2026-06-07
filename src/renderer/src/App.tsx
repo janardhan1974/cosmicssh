@@ -2,7 +2,6 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { FloatingChrome } from './components/FloatingChrome'
 import { HostKeyPrompt } from './components/HostKeyPrompt'
 import { MenuBar, type MenuDef } from './components/MenuBar'
-import { TitleBar } from './components/TitleBar'
 import { MinimizedStrip } from './components/MinimizedStrip'
 import { ProfileEditor } from './components/ProfileEditor'
 import { PasswordPrompt } from './components/PasswordPrompt'
@@ -221,12 +220,10 @@ export function App() {
     )
   }, [terminalBackground])
 
-  // Chrome background override (menubar + sidebar + tab bar + title bar).
-  // Also publishes --bg-chrome-hover as a 12%-darkened version for hover
-  // states so sidebar rows/menu buttons don't flash the dark --bg-elevated
-  // over a light custom background. Calls setTitleBarOverlay so the Windows
-  // Controls Overlay (close/min/max strip) stays in sync with the HTML title
-  // bar area that replaced the native OS title bar.
+  // Chrome background override (menubar + sidebar + tab bar). null = theme tokens.
+  // Also publishes --bg-chrome-hover as a 12%-darkened version for hover states
+  // so sidebar rows and menu buttons don't flash the theme's dark --bg-elevated
+  // over a light custom background.
   useEffect(() => {
     if (chromeBackground) {
       document.documentElement.style.setProperty('--bg-chrome-override', chromeBackground)
@@ -235,7 +232,6 @@ export function App() {
       document.documentElement.style.removeProperty('--bg-chrome-override')
       document.documentElement.style.removeProperty('--bg-chrome-hover')
     }
-    void window.api.app.setTitleBarOverlay(chromeBackground)
   }, [chromeBackground])
 
   // Global subscriber: keep tab status in sync with main's lifecycle events.
@@ -627,7 +623,6 @@ export function App() {
 
   return (
     <div className="app-root" onMouseDownCapture={handleChromeMouseDownCapture}>
-      <TitleBar />
       <MenuBar menus={menus} />
       <div
         className="app-shell"
