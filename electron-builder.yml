@@ -15,6 +15,27 @@ directories:
 # node_modules and everything emitted under dist/, asars the result).
 asar: true
 
+# ssh2 ships a native addon (sshcrypto.node) and an OPTIONAL native dep
+# (cpu-features → cpufeatures.node). electron-builder unpacks the .node
+# binaries to app.asar.unpacked, but Node's module resolver, once running
+# from the unpacked ssh2 dir, walks up node_modules WITHOUT crossing back
+# into the asar — so any of ssh2's deps left inside the asar fail to resolve
+# with "ENOENT ... app.asar.unpacked\...\package.json". Unpacking the entire
+# ssh2 dependency closure keeps it all on disk together so resolution works.
+# (This bites only when cpu-features is actually present — its postinstall
+# can fail under corporate TLS, in which case ssh2 silently uses its pure-JS
+# fallback and the bug stays hidden. Unpacking the whole tree fixes both
+# cases.) Keep this list in sync if ssh2's dep tree changes.
+asarUnpack:
+  - "**/node_modules/ssh2/**"
+  - "**/node_modules/asn1/**"
+  - "**/node_modules/safer-buffer/**"
+  - "**/node_modules/bcrypt-pbkdf/**"
+  - "**/node_modules/tweetnacl/**"
+  - "**/node_modules/cpu-features/**"
+  - "**/node_modules/buildcheck/**"
+  - "**/node_modules/nan/**"
+
 # Sourcemaps shouldn't ship to end users.
 files:
   - "!**/*.map"
