@@ -1,6 +1,718 @@
+/* ─── Bundled Google Fonts (fontsource, latin subset) ─────────────────────
+   @font-face blocks for all 49 families. Files live in
+   src/renderer/public/fonts/. Italic variants are only present for
+   the monospace families that have them. ─────────────────────────────── */
+
+@font-face {
+  font-family: 'Roboto';
+  src: url('/fonts/Roboto-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Roboto';
+  src: url('/fonts/Roboto-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Open Sans';
+  src: url('/fonts/OpenSans-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Open Sans';
+  src: url('/fonts/OpenSans-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Lato';
+  src: url('/fonts/Lato-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Lato';
+  src: url('/fonts/Lato-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Montserrat';
+  src: url('/fonts/Montserrat-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Montserrat';
+  src: url('/fonts/Montserrat-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Poppins';
+  src: url('/fonts/Poppins-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Poppins';
+  src: url('/fonts/Poppins-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Oswald';
+  src: url('/fonts/Oswald-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Oswald';
+  src: url('/fonts/Oswald-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Raleway';
+  src: url('/fonts/Raleway-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Raleway';
+  src: url('/fonts/Raleway-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Noto Sans';
+  src: url('/fonts/NotoSans-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Noto Sans';
+  src: url('/fonts/NotoSans-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Roboto Condensed';
+  src: url('/fonts/RobotoCondensed-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Roboto Condensed';
+  src: url('/fonts/RobotoCondensed-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Source Sans 3';
+  src: url('/fonts/SourceSans3-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Source Sans 3';
+  src: url('/fonts/SourceSans3-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Nunito Sans';
+  src: url('/fonts/NunitoSans-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Nunito Sans';
+  src: url('/fonts/NunitoSans-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Work Sans';
+  src: url('/fonts/WorkSans-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Work Sans';
+  src: url('/fonts/WorkSans-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Rubik';
+  src: url('/fonts/Rubik-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Rubik';
+  src: url('/fonts/Rubik-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'PT Sans';
+  src: url('/fonts/PTSans-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'PT Sans';
+  src: url('/fonts/PTSans-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Ubuntu';
+  src: url('/fonts/Ubuntu-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Ubuntu';
+  src: url('/fonts/Ubuntu-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Fira Sans';
+  src: url('/fonts/FiraSans-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Fira Sans';
+  src: url('/fonts/FiraSans-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Cabin';
+  src: url('/fonts/Cabin-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Cabin';
+  src: url('/fonts/Cabin-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Quicksand';
+  src: url('/fonts/Quicksand-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Quicksand';
+  src: url('/fonts/Quicksand-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Mulish';
+  src: url('/fonts/Mulish-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Mulish';
+  src: url('/fonts/Mulish-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Karla';
+  src: url('/fonts/Karla-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Karla';
+  src: url('/fonts/Karla-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Hind';
+  src: url('/fonts/Hind-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Hind';
+  src: url('/fonts/Hind-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Assistant';
+  src: url('/fonts/Assistant-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Assistant';
+  src: url('/fonts/Assistant-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Heebo';
+  src: url('/fonts/Heebo-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Heebo';
+  src: url('/fonts/Heebo-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Merriweather';
+  src: url('/fonts/Merriweather-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Merriweather';
+  src: url('/fonts/Merriweather-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Playfair Display';
+  src: url('/fonts/PlayfairDisplay-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Playfair Display';
+  src: url('/fonts/PlayfairDisplay-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Libre Baskerville';
+  src: url('/fonts/LibreBaskerville-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Libre Baskerville';
+  src: url('/fonts/LibreBaskerville-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Crimson Text';
+  src: url('/fonts/CrimsonText-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Crimson Text';
+  src: url('/fonts/CrimsonText-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Bitter';
+  src: url('/fonts/Bitter-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Bitter';
+  src: url('/fonts/Bitter-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Lora';
+  src: url('/fonts/Lora-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Lora';
+  src: url('/fonts/Lora-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'EB Garamond';
+  src: url('/fonts/EBGaramond-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'EB Garamond';
+  src: url('/fonts/EBGaramond-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Cormorant Garamond';
+  src: url('/fonts/CormorantGaramond-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Cormorant Garamond';
+  src: url('/fonts/CormorantGaramond-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Arvo';
+  src: url('/fonts/Arvo-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Arvo';
+  src: url('/fonts/Arvo-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Domine';
+  src: url('/fonts/Domine-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Domine';
+  src: url('/fonts/Domine-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Roboto Slab';
+  src: url('/fonts/RobotoSlab-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Roboto Slab';
+  src: url('/fonts/RobotoSlab-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Zilla Slab';
+  src: url('/fonts/ZillaSlab-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Zilla Slab';
+  src: url('/fonts/ZillaSlab-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Alfa Slab One';
+  src: url('/fonts/AlfaSlabOne-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('/fonts/SpaceGrotesk-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('/fonts/SpaceGrotesk-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Manrope';
+  src: url('/fonts/Manrope-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Manrope';
+  src: url('/fonts/Manrope-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Sora';
+  src: url('/fonts/Sora-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Sora';
+  src: url('/fonts/Sora-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Outfit';
+  src: url('/fonts/Outfit-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Outfit';
+  src: url('/fonts/Outfit-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('/fonts/PlusJakartaSans-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('/fonts/PlusJakartaSans-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Lexend';
+  src: url('/fonts/Lexend-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Lexend';
+  src: url('/fonts/Lexend-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'DM Sans';
+  src: url('/fonts/DMSans-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'DM Sans';
+  src: url('/fonts/DMSans-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Inconsolata';
+  src: url('/fonts/Inconsolata-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Inconsolata';
+  src: url('/fonts/Inconsolata-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Roboto Mono';
+  src: url('/fonts/RobotoMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Roboto Mono';
+  src: url('/fonts/RobotoMono-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Roboto Mono';
+  src: url('/fonts/RobotoMono-Italic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Roboto Mono';
+  src: url('/fonts/RobotoMono-BoldItalic.woff2') format('woff2');
+  font-weight: 700;
+  font-style: italic;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Fira Code';
+  src: url('/fonts/FiraCode-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Fira Code';
+  src: url('/fonts/FiraCode-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Space Mono';
+  src: url('/fonts/SpaceMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Space Mono';
+  src: url('/fonts/SpaceMono-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Space Mono';
+  src: url('/fonts/SpaceMono-Italic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Space Mono';
+  src: url('/fonts/SpaceMono-BoldItalic.woff2') format('woff2');
+  font-weight: 700;
+  font-style: italic;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Source Code Pro';
+  src: url('/fonts/SourceCodePro-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Source Code Pro';
+  src: url('/fonts/SourceCodePro-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Source Code Pro';
+  src: url('/fonts/SourceCodePro-Italic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Source Code Pro';
+  src: url('/fonts/SourceCodePro-BoldItalic.woff2') format('woff2');
+  font-weight: 700;
+  font-style: italic;
+  font-display: block;
+
 * { box-sizing: border-box; }
 
-/* ─── Bundled fonts ─────────────────────────────────────────────────────────
+/* ─── Bundled fonts ───────────────────────────────────────────────────────────────────────────
    WOFF2 files live in public/fonts/ (copied verbatim by Vite into the
    renderer bundle). Declaring them here makes them available everywhere —
    the UI chrome via --ui-font and xterm via fontFamily option — without
@@ -57,7 +769,7 @@
   font-display: block;
 }
 
-/* ─── Theme tokens ─────────────────────────────────────────────────────────
+/* ─── Theme tokens ────────────────────────────────────────────────────────────────────────
    Themes are applied via `data-theme` on <html>. Default is dark; light and
    blue override the same set of tokens. Components reference var(--*) so the
    whole UI re-themes by swapping the attribute. */
@@ -180,7 +892,7 @@ button {
 }
 button:disabled { cursor: not-allowed; opacity: 0.5; }
 
-/* ─── Top-level shell ─────────────────────────────────────────────────── */
+/* ─── Top-level shell ───────────────────────────────────────────────────────────────────────────── */
 /* Outer container that stacks the custom MenuBar above the grid. height:100%
    so the inner .app-shell can still flex to fill what remains. */
 .app-root {
@@ -199,7 +911,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   min-height: 0;
 }
 
-/* ─── Custom menu bar (replaces the OS-drawn native menu) ────────────────
+/* ─── Custom menu bar (replaces the OS-drawn native menu) ────────────────────────────
    Lives at the top of .app-root. Background derives from the app theme so
    it follows Dark / Light / Light Blue automatically — no separate setting
    needed for "follow background". */
@@ -313,7 +1025,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   min-width: 0; /* allow children to shrink */
 }
 
-/* ─── Sidebar ─────────────────────────────────────────────────────────── */
+/* ─── Sidebar ──────────────────────────────────────────────────────────────────────────────── */
 /* Background resolution (App.tsx publishes these):
    1. --bg-chrome-override — set when the user picks a custom background for
       the menubar/sidebar/tab bar group. Sidebar follows the same override so
@@ -586,7 +1298,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 }
 .profile-item:hover .profile-actions { display: flex; }
 
-/* ─── Tab bar ─────────────────────────────────────────────────────────── */
+/* ─── Tab bar ──────────────────────────────────────────────────────────────────────────────── */
 .tab-bar {
   display: flex;
   /* 2px breathing room between tabs replaces the old border-right separator;
@@ -717,7 +1429,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   50% { opacity: 0.4; }
 }
 
-/* ─── Per-tab content area ────────────────────────────────────────────── */
+/* ─── Per-tab content area ────────────────────────────────────────────────────────────────────────── */
 .terminal-stack {
   flex: 1;
   min-height: 0;
@@ -803,7 +1515,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   height: 100%;
 }
 
-/* ─── Per-tile header (tile-v / tile-h) ───────────────────────────────── */
+/* ─── Per-tile header (tile-v / tile-h) ────────────────────────────────────────────────────── */
 
 /* In tile modes the global TabBar is hidden; each tile owns a header that
    travels with its pane. Styled to read as a tab (same icon, label, REC dot,
@@ -834,7 +1546,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   font-style: italic;
 }
 
-/* ─── MDI (floating windows) layout ─────────────────────────────────────── */
+/* ─── MDI (floating windows) layout ──────────────────────────────────────────────────────────────── */
 
 /* The container is the positioning context for absolute-positioned floating
    windows. overflow:hidden prevents a half-dragged window's drop shadow from
@@ -1016,7 +1728,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
     );
 }
 
-/* ─── Minimized window strip ──────────────────────────────────────────── */
+/* ─── Minimized window strip ──────────────────────────────────────────────────────────────────── */
 
 .minimized-strip {
   flex-shrink: 0;
@@ -1084,7 +1796,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   background-color: var(--bg-terminal, var(--bg)) !important;
 }
 
-/* ─── SFTP dual-pane ─────────────────────────────────────────────────── */
+/* ─── SFTP dual-pane ───────────────────────────────────────────────────────────────────────────── */
 /* SFTP window background tracks --bg-terminal so the SFTP canvas matches the
    actual terminal color (including active color schemes). Chrome inside the
    pane (pane header, toolbar, list header) intentionally keeps its own
@@ -1291,7 +2003,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   font-size: 12px;
 }
 
-/* ─── Empty state (no tabs) ───────────────────────────────────────────── */
+/* ─── Empty state (no tabs) ─────────────────────────────────────────────────────────────────────────── */
 .empty-pane {
   flex: 1;
   display: grid;
@@ -1314,7 +2026,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 }
 .empty-pane .primary:hover { background: var(--accent-hover); }
 
-/* ─── Modals ──────────────────────────────────────────────────────────── */
+/* ─── Modals ───────────────────────────────────────────────────────────────────────────────────── */
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -1497,7 +2209,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   font-size: 11px;
 }
 
-/* ─── Host-key prompt (first connect) ─────────────────────────────────── */
+/* ─── Host-key prompt (first connect) ─────────────────────────────────────────────────────── */
 .hostkey-prompt {
   width: 480px;
 }
@@ -1529,7 +2241,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   color: var(--warning);
 }
 
-/* ─── Transfers panel ─────────────────────────────────────────────────── */
+/* ─── Transfers panel ───────────────────────────────────────────────────────────────────────────── */
 .transfers-panel {
   position: fixed;
   right: 16px;
@@ -1613,7 +2325,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 }
 .transfer-stats .err { color: var(--error-fg); }
 
-/* ─── Context menu ────────────────────────────────────────────────────── */
+/* ─── Context menu ─────────────────────────────────────────────────────────────────────────────────── */
 .context-menu {
   position: fixed;
   z-index: 300;
@@ -1650,7 +2362,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   background: var(--error-bg);
 }
 
-/* ─── Error toast ─────────────────────────────────────────────────────── */
+/* ─── Error toast ─────────────────────────────────────────────────────────────────────────────────────── */
 .error-toast {
   position: fixed;
   bottom: 20px;
