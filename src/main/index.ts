@@ -281,11 +281,29 @@ ipcMain.handle(IPC_APP_MENU_COMMAND, (event, raw) => {
   }
 })
 
+// Catch any unhandled exception in the main process and show it in a dialog
+// before quitting. Without this, the process can die silently and the user
+// only sees it disappear from Task Manager with no indication of what went wrong.
+process.on('uncaughtException', (err) => {
+  // eslint-disable-next-line no-console
+  console.error('[uncaughtException]', err)
+  const msg = err.stack ?? err.message ?? String(err)
+  dialog.showErrorBox('CosmicSSH — startup error', msg)
+  app.quit()
+})
+
 void app.whenReady().then(() => {
   // The renderer's MenuBar provides the menu now; remove Electron's default
   // app menu so we don't end up with two stacked menu bars.
   Menu.setApplicationMenu(null)
-  createWindow()
+  try {
+    createWindow()
+  } catch (err) {
+    const msg = err instanceof Error ? (err.stack ?? err.message) : String(err)
+    dialog.showErrorBox('CosmicSSH — failed to open window', msg)
+    app.quit()
+    return
+  }
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
