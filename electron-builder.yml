@@ -65,7 +65,7 @@ win:
     - target: portable
       arch:
         - x64
-  artifactName: ${productName}-${version}-${arch}.${ext}
+  artifactName: ${productName}-${arch}.${ext}
   # electron-builder auto-converts a 512×512+ PNG to a multi-resolution ICO
   # for the .exe metadata during packaging.
   icon: resources/icon.png
@@ -87,10 +87,10 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: CosmicSSH
-  artifactName: ${productName}-Setup-${version}-${arch}.${ext}
+  artifactName: ${productName}-Setup-${arch}.${ext}
 
 portable:
-  artifactName: ${productName}-${version}-${arch}-portable.${ext}
+  artifactName: ${productName}-${arch}-portable.${ext}
   # Stable temp-extraction dir so 2nd-and-later launches reuse the unpacked
   # files instead of re-extracting ~75 MB every time. First launch is still
   # slow (the extraction); every launch after is near-instant.
@@ -110,7 +110,7 @@ linux:
         - x64
   category: Network
   icon: resources/icon.png
-  artifactName: ${productName}-${version}-${arch}.${ext}
+  artifactName: ${productName}-${arch}.${ext}
   desktop:
     entry:
       Name: CosmicSSH
@@ -137,7 +137,7 @@ mac:
       arch:
         - arm64
         - x64
-  artifactName: ${productName}-${version}-${arch}.${ext}
+  artifactName: ${productName}-${arch}.${ext}
   icon: resources/icon.png
   # LSApplicationCategoryType — surfaces in Finder, Launchpad, About panels.
   category: public.app-category.developer-tools
@@ -161,7 +161,7 @@ mac:
   # entitlementsInherit: resources/entitlements.mac.plist
 
 dmg:
-  artifactName: ${productName}-${version}-${arch}.${ext}
+  artifactName: ${productName}-${arch}.${ext}
   # The .dmg window layout — keep the defaults (icon + Applications shortcut
   # side-by-side, drag to install). Override here if you want a custom
   # background or window size later.
