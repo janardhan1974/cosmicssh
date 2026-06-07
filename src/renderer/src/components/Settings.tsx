@@ -6,153 +6,82 @@ type Props = {
   onClose: () => void
 }
 
-// Curated list of monospace fonts. Bundled-with-Windows fonts come first;
-// developer-favorites that users often install separately follow. Each entry
-// is the value passed straight to xterm — already wrapped with a fallback
-// stack so a missing font degrades to plain monospace.
-type FontChoice = { label: string; value: string; note?: string }
+type FontChoice = { label: string; value: string }
+type FontGroup = { group: string; fonts: FontChoice[] }
 
-const FONT_CHOICES: FontChoice[] = [
+// Single font list used for both the sidebar/chrome and the terminal.
+// Proportional fonts work fine for the UI chrome; monospace fonts work
+// in both chrome and xterm. Groups rendered as <optgroup> in the picker.
+const FONT_GROUPS: FontGroup[] = [
   {
-    label: 'Cascadia Mono',
-    value: '"Cascadia Mono", Consolas, monospace',
-    note: 'Default — ships with Windows 11',
+    group: 'Sans-serif — Windows built-in',
+    fonts: [
+      { label: 'Segoe UI', value: '"Segoe UI", system-ui, sans-serif' },
+      { label: 'Calibri', value: 'Calibri, "Segoe UI", sans-serif' },
+      { label: 'Arial', value: 'Arial, "Helvetica Neue", sans-serif' },
+      { label: 'Verdana', value: 'Verdana, Geneva, sans-serif' },
+      { label: 'Tahoma', value: 'Tahoma, Geneva, sans-serif' },
+      { label: 'Trebuchet MS', value: '"Trebuchet MS", sans-serif' },
+      { label: 'Century Gothic', value: '"Century Gothic", Futura, sans-serif' },
+    ],
   },
   {
-    label: 'Cascadia Code',
-    value: '"Cascadia Code", "Cascadia Mono", Consolas, monospace',
-    note: 'Cascadia + ligatures',
+    group: 'Serif — Windows built-in',
+    fonts: [
+      { label: 'Georgia', value: 'Georgia, serif' },
+      { label: 'Times New Roman', value: '"Times New Roman", Times, serif' },
+      { label: 'Palatino Linotype', value: '"Palatino Linotype", Palatino, serif' },
+      { label: 'Book Antiqua', value: '"Book Antiqua", Palatino, serif' },
+      { label: 'Garamond', value: 'Garamond, serif' },
+    ],
   },
   {
-    label: 'Consolas',
-    value: 'Consolas, monospace',
-    note: 'Built into Windows',
+    group: 'Monospace — Windows built-in',
+    fonts: [
+      { label: 'Cascadia Mono', value: '"Cascadia Mono", Consolas, monospace' },
+      { label: 'Cascadia Code (ligatures)', value: '"Cascadia Code", "Cascadia Mono", Consolas, monospace' },
+      { label: 'Consolas', value: 'Consolas, monospace' },
+      { label: 'Courier New', value: '"Courier New", monospace' },
+      { label: 'Lucida Console', value: '"Lucida Console", monospace' },
+      { label: 'Lucida Sans Typewriter', value: '"Lucida Sans Typewriter", "Lucida Console", monospace' },
+    ],
   },
   {
-    label: 'Courier New',
-    value: '"Courier New", monospace',
-    note: 'Built into Windows',
-  },
-  {
-    label: 'Lucida Console',
-    value: '"Lucida Console", monospace',
-    note: 'Built into Windows',
-  },
-  {
-    label: 'JetBrains Mono',
-    value: '"JetBrains Mono", Consolas, monospace',
-    note: 'Install separately',
-  },
-  {
-    label: 'Fira Code',
-    value: '"Fira Code", Consolas, monospace',
-    note: 'Install separately',
-  },
-  {
-    label: 'Source Code Pro',
-    value: '"Source Code Pro", Consolas, monospace',
-    note: 'Install separately',
-  },
-  {
-    label: 'IBM Plex Mono',
-    value: '"IBM Plex Mono", Consolas, monospace',
-    note: 'Install separately',
-  },
-  {
-    label: 'Hack',
-    value: 'Hack, Consolas, monospace',
-    note: 'Install separately',
-  },
-  {
-    label: 'Ubuntu Mono',
-    value: '"Ubuntu Mono", Consolas, monospace',
-    note: 'Install separately',
+    group: 'Monospace — install separately',
+    fonts: [
+      { label: 'JetBrains Mono', value: '"JetBrains Mono", Consolas, monospace' },
+      { label: 'Fira Code', value: '"Fira Code", Consolas, monospace' },
+      { label: 'Source Code Pro', value: '"Source Code Pro", Consolas, monospace' },
+      { label: 'IBM Plex Mono', value: '"IBM Plex Mono", Consolas, monospace' },
+      { label: 'Hack', value: 'Hack, Consolas, monospace' },
+      { label: 'Ubuntu Mono', value: '"Ubuntu Mono", Consolas, monospace' },
+      { label: 'DejaVu Sans Mono', value: '"DejaVu Sans Mono", Consolas, monospace' },
+      { label: 'Noto Mono', value: '"Noto Mono", Consolas, monospace' },
+    ],
   },
 ]
 
-// Proportional fonts for the UI chrome (menu bar, sidebar, tabs). System fonts
-// first; a couple of monospace entries at the end for users who prefer it.
-const UI_FONT_CHOICES: FontChoice[] = [
-  {
-    label: 'Segoe UI',
-    value: '"Segoe UI", system-ui, -apple-system, sans-serif',
-    note: 'Default — Windows system font',
-  },
-  {
-    label: 'Calibri',
-    value: 'Calibri, "Segoe UI", sans-serif',
-    note: 'Ships with Windows / Office',
-  },
-  {
-    label: 'Arial',
-    value: 'Arial, "Helvetica Neue", sans-serif',
-    note: 'Built into Windows',
-  },
-  {
-    label: 'Verdana',
-    value: 'Verdana, Geneva, sans-serif',
-    note: 'Built into Windows',
-  },
-  {
-    label: 'Tahoma',
-    value: 'Tahoma, Geneva, sans-serif',
-    note: 'Built into Windows',
-  },
-  {
-    label: 'Trebuchet MS',
-    value: '"Trebuchet MS", sans-serif',
-    note: 'Built into Windows',
-  },
-  {
-    label: 'Cascadia Mono',
-    value: '"Cascadia Mono", Consolas, monospace',
-    note: 'Monospace',
-  },
-  {
-    label: 'Consolas',
-    value: 'Consolas, monospace',
-    note: 'Monospace',
-  },
-]
+const ALL_FONTS = FONT_GROUPS.flatMap((g) => g.fonts)
 
 const FONT_SIZES = [10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24]
 
 export function Settings({ onClose }: Props) {
   const current = useSettingsStore((s) => s.terminal)
   const setTerminal = useSettingsStore((s) => s.setTerminal)
-  // Capture brightness values at modal open so Cancel can revert the
-  // live previews (both terminal and UI brightness preview live).
   const originalBrightnessRef = useRef(current.brightness)
   const originalUiBrightnessRef = useRef(current.uiBrightness)
-  // Flipped to true inside handleSubmit just before setTerminal is awaited so
-  // the unmount cleanup knows not to clobber the freshly-saved value.
   const savedRef = useRef(false)
 
-  // Match the persisted value to a known choice; if it doesn't match (user
-  // had a custom value from before), prepend it as a "Custom" first option so
-  // we don't surprise them with a forced reset.
-  const choices = useMemo<FontChoice[]>(() => {
-    const matched = FONT_CHOICES.find((f) => f.value === current.fontFamily)
-    if (matched) return FONT_CHOICES
-    return [
-      { label: `Custom — ${current.fontFamily}`, value: current.fontFamily, note: 'Saved previously' },
-      ...FONT_CHOICES,
-    ]
+  // If the persisted font isn't in the list, surface it as a "Custom" option.
+  const customFont = useMemo<FontChoice | null>(() => {
+    const known = ALL_FONTS.find((f) => f.value === current.fontFamily)
+    return known ? null : { label: `Custom — ${current.fontFamily}`, value: current.fontFamily }
   }, [current.fontFamily])
-  const uiChoices = useMemo<FontChoice[]>(() => {
-    const matched = UI_FONT_CHOICES.find((f) => f.value === current.uiFontFamily)
-    if (matched) return UI_FONT_CHOICES
-    return [
-      { label: `Custom — ${current.uiFontFamily}`, value: current.uiFontFamily, note: 'Saved previously' },
-      ...UI_FONT_CHOICES,
-    ]
-  }, [current.uiFontFamily])
 
+  // One font for everything — sidebar chrome + terminal/SFTP panes.
   const [fontFamily, setFontFamily] = useState(current.fontFamily)
   const [fontSize, setFontSize] = useState(current.fontSize)
-  const [uiFontFamily, setUiFontFamily] = useState(current.uiFontFamily)
   const [uiFontSize, setUiFontSize] = useState(current.uiFontSize)
-  // null = follow CSS theme variable. Hex string = custom override.
   const [useCustomUiBg, setUseCustomUiBg] = useState(current.chromeBackground !== null)
   const [chromeBackground, setChromeBackground] = useState<string>(
     current.chromeBackground ?? '#131317',
@@ -168,10 +97,6 @@ export function Settings({ onClose }: Props) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Live brightness preview: push the value into the store immediately so all
-  // open terminals re-skin while the user drags. No IPC write — that only
-  // happens on Save. The setState reaches into zustand's API directly so we
-  // don't have to add a one-off store action for a UI-only optimistic update.
   const previewBrightness = (n: number) => {
     setBrightness(n)
     useSettingsStore.setState((s) => ({ terminal: { ...s.terminal, brightness: n } }))
@@ -181,10 +106,6 @@ export function Settings({ onClose }: Props) {
     useSettingsStore.setState((s) => ({ terminal: { ...s.terminal, uiBrightness: n } }))
   }
 
-  // Revert any in-flight preview when the modal closes without Save. The Save
-  // path replaces the store value anyway, so calling this after Save is a
-  // harmless no-op (the original value just gets briefly swapped in and back
-  // out before the IPC reply lands — invisible to the user).
   const revertPreview = () => {
     useSettingsStore.setState((s) => ({
       terminal: {
@@ -195,10 +116,6 @@ export function Settings({ onClose }: Props) {
     }))
   }
 
-  // Revert any unsaved preview on unmount (Cancel, Escape, click-outside).
-  // savedRef flips true when handleSubmit commits, so we don't undo a fresh
-  // save here. Empty deps because we only want this on real unmount, not on
-  // every brightness change.
   useEffect(() => {
     return () => {
       if (!savedRef.current) revertPreview()
@@ -221,15 +138,13 @@ export function Settings({ onClose }: Props) {
         sidebarBackground: null,
         terminalBackground,
         chromeBackground: useCustomUiBg ? chromeBackground : null,
-        uiFontFamily,
+        uiFontFamily: fontFamily,   // same font for the chrome
         uiFontSize,
         uiTextColor: useCustomUiText ? uiTextColor : null,
         uiBrightness,
       })
       onClose()
     } catch (err) {
-      // Save failed — the preview is still live but unpersisted. Clearing the
-      // ref means an unmount after a failed save still reverts.
       savedRef.current = false
       setError(err instanceof Error ? err.message : String(err))
       setBusy(false)
@@ -241,8 +156,40 @@ export function Settings({ onClose }: Props) {
       <form className="modal settings-modal" onSubmit={handleSubmit}>
         <h2>Display settings</h2>
 
-        {/* ── Menubar · Sidebar · Tab bar ─────────────────────────────── */}
-        <h3>Menubar · Sidebar · Tab bar</h3>
+        {/* ── Font (global — applies to sidebar and terminal alike) ─── */}
+        <h3>Font</h3>
+
+        <label>
+          <span>Typeface</span>
+          <select
+            value={fontFamily}
+            onChange={(e) => setFontFamily(e.target.value)}
+            disabled={busy}
+            style={{ fontFamily }}
+          >
+            {customFont && (
+              <optgroup label="Custom">
+                <option value={customFont.value}>{customFont.label}</option>
+              </optgroup>
+            )}
+            {FONT_GROUPS.map((g) => (
+              <optgroup key={g.group} label={g.group}>
+                {g.fonts.map((f) => (
+                  <option key={f.value} value={f.value} style={{ fontFamily: f.value }}>
+                    {f.label}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </label>
+
+        <div className="font-preview" style={{ fontFamily, fontSize: `${fontSize}px` }}>
+          {'$ ssh user@host — 1234567890 — AaBbCcDd'}
+        </div>
+
+        {/* ── Menubar · Sidebar · Tab bar ───────────────────────────────────── */}
+        <h3 style={{ marginTop: 20 }}>Menubar · Sidebar · Tab bar</h3>
 
         <label className="checkbox">
           <input
@@ -311,21 +258,6 @@ export function Settings({ onClose }: Props) {
         )}
 
         <label>
-          <span>Text font</span>
-          <select
-            value={uiFontFamily}
-            onChange={(e) => setUiFontFamily(e.target.value)}
-            disabled={busy}
-          >
-            {uiChoices.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}{c.note ? `  —  ${c.note}` : ''}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label>
           <span>Text size</span>
           <select
             value={uiFontSize}
@@ -357,7 +289,7 @@ export function Settings({ onClose }: Props) {
           </span>
         </label>
 
-        {/* ── Terminal & SFTP ─────────────────────────────────────────── */}
+        {/* ── Terminal & SFTP ──────────────────────────────────────────────────── */}
         <h3 style={{ marginTop: 20 }}>Terminal &amp; SFTP</h3>
 
         <label>
@@ -405,21 +337,6 @@ export function Settings({ onClose }: Props) {
         </label>
 
         <label>
-          <span>Text font</span>
-          <select
-            value={fontFamily}
-            onChange={(e) => setFontFamily(e.target.value)}
-            disabled={busy}
-          >
-            {choices.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}{c.note ? `  —  ${c.note}` : ''}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label>
           <span>Text size</span>
           <select
             value={fontSize}
@@ -450,10 +367,6 @@ export function Settings({ onClose }: Props) {
             </span>
           </span>
         </label>
-
-        <div className="font-preview" style={{ fontFamily, fontSize: `${fontSize}px` }}>
-          {'$ ssh user@host\n[user@host ~]$ vim README.md  # 1234567890'}
-        </div>
 
         {error && <div className="error" role="alert">{error}</div>}
 
