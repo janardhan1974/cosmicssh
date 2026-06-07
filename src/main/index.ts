@@ -1,6 +1,7 @@
 import { app, BrowserWindow, Menu, dialog, ipcMain, nativeImage, screen } from 'electron'
-import { existsSync } from 'node:fs'
+import { existsSync, appendFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { homedir } from 'node:os'
 import { BUILD_DATE_DISPLAY, BUILD_VERSION } from './build-info'
 import { AppMenuCommandSchema, validate } from './ipc-schemas'
 import { registerIpcHandlers } from './ipc-handlers'
@@ -10,13 +11,46 @@ import {
   type AppMenuCommand,
 } from '../shared/types'
 
+// ─── Crash visibility ──────────────────────────────────────────────────────
+// Registered FIRST so it catches throws during the module-evaluation phase
+// below (app.setPath, registerIpcHandlers, etc.) which run before app is ready.
+// Without this a packaged build can die silently — the process shows in Task
+// Manager but no window ever opens and there's no error to go on.
+function reportFatal(stage: string, err: unknown): void {
+  const msg = err instanceof Error ? (err.stack ?? err.message) : String(err)
+  const line = `[${new Date().toISOString()}] FATAL (${stage}): ${msg}\n`
+  // eslint-disable-next-line no-console
+  console.error(line)
+  // Best-effort crash log next to a path that's reliably writable, so we have
+  // a record even if the dialog itself can't show (e.g. before app is ready).
+  try {
+    appendFileSync(join(homedir(), 'cosmicssh-crash.log'), line)
+  } catch {
+    /* nothing more we can do */
+  }
+  try {
+    dialog.showErrorBox(`CosmicSSH — startup error (${stage})`, msg)
+  } catch {
+    /* dialog unavailable this early; the log + console will have to do */
+  }
+  app.quit()
+  process.exit(1)
+}
+
+process.on('uncaughtException', (err) => reportFatal('uncaughtException', err))
+process.on('unhandledRejection', (err) => reportFatal('unhandledRejection', err))
+
 // Relocate userData to live next to the .exe (portable layout) BEFORE any
 // store is constructed. ProfileStore / SettingsStore / CredentialVault /
 // KnownHostsStore all derive their paths from `app.getPath('userData')`, so
 // a single setPath here moves everything in one go. Must run before
 // `registerIpcHandlers()` below since that constructs the stores. Dev mode
 // is left on the default %APPDATA% — see storage-dir.ts for why.
-app.setPath('userData', resolveStorageDir(app.getPath('userData')))
+try {
+  app.setPath('userData', resolveStorageDir(app.getPath('userData')))
+} catch (err) {
+  reportFatal('setPath(userData)', err)
+}
 
 const DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
 
@@ -75,11 +109,23 @@ function createWindow(): void {
     console.error(`[preload-error] ${preloadPath}: ${err.message}\n${err.stack ?? ''}`)
   })
 
+  // If the renderer HTML fails to load (bad path inside the asar, etc.) the
+  // window would stay blank/invisible. Surface it so we get a real error
+  // instead of an empty Task Manager entry.
+  win.webContents.on('did-fail-load', (_e, errorCode, errorDesc, validatedURL) => {
+    if (errorCode === -3) return // ABORTED — benign (e.g. a redirect/cancel)
+    reportFatal(
+      'did-fail-load',
+      new Error(`Renderer failed to load (${errorCode} ${errorDesc}) — ${validatedURL}`),
+    )
+  })
+
   if (DEV_SERVER_URL) {
     void win.loadURL(DEV_SERVER_URL)
     win.webContents.openDevTools({ mode: 'detach' })
   } else {
-    void win.loadFile(join(__dirname, '../renderer/index.html'))
+    const indexHtml = join(__dirname, '../renderer/index.html')
+    win.loadFile(indexHtml).catch((err) => reportFatal('loadFile', err))
   }
 }
 
@@ -218,7 +264,16 @@ export function showAboutDialog(): void {
   })
 }
 
-const { sessions: sessionManager, logger: sessionLogger } = registerIpcHandlers()
+function initIpc(): ReturnType<typeof registerIpcHandlers> {
+  try {
+    return registerIpcHandlers()
+  } catch (err) {
+    reportFatal('registerIpcHandlers', err)
+    throw err // unreachable — reportFatal exits — but satisfies the type
+  }
+}
+
+const { sessions: sessionManager, logger: sessionLogger } = initIpc()
 
 // Windows uses AppUserModelId to group taskbar entries and pick which icon
 // to show. Without this, taskbar may show electron.exe's default icon even
@@ -281,17 +336,6 @@ ipcMain.handle(IPC_APP_MENU_COMMAND, (event, raw) => {
   }
 })
 
-// Catch any unhandled exception in the main process and show it in a dialog
-// before quitting. Without this, the process can die silently and the user
-// only sees it disappear from Task Manager with no indication of what went wrong.
-process.on('uncaughtException', (err) => {
-  // eslint-disable-next-line no-console
-  console.error('[uncaughtException]', err)
-  const msg = err.stack ?? err.message ?? String(err)
-  dialog.showErrorBox('CosmicSSH — startup error', msg)
-  app.quit()
-})
-
 void app.whenReady().then(() => {
   // The renderer's MenuBar provides the menu now; remove Electron's default
   // app menu so we don't end up with two stacked menu bars.
@@ -299,15 +343,13 @@ void app.whenReady().then(() => {
   try {
     createWindow()
   } catch (err) {
-    const msg = err instanceof Error ? (err.stack ?? err.message) : String(err)
-    dialog.showErrorBox('CosmicSSH — failed to open window', msg)
-    app.quit()
+    reportFatal('createWindow', err)
     return
   }
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
-})
+}).catch((err) => reportFatal('whenReady', err))
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
