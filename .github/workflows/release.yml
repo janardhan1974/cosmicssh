@@ -1,0 +1,59 @@
+name: Build & release Windows
+
+# Runs on every push to main (and on manual trigger).
+# Produces the NSIS installer + portable .exe and attaches them to a
+# rolling "latest" GitHub release so download links never change.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write   # needed to create/update the release
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # npm run dist calls scripts/dist.mjs which:
+      #   • sets CSC_IDENTITY_AUTO_DISCOVERY=false (no code-signing cert yet)
+      #   • pre-creates the winCodeSign cache dir to skip the heavy download
+      #   • invokes electron-builder --win (nsis + portable targets)
+      # Output lands in release/  (CosmicSSH-Setup-x64.exe + CosmicSSH-x64-portable.exe)
+      - name: Build and package
+        run: npm run dist
+
+      # Replace the artifacts on the "latest" release every time.
+      # The tag stays fixed (it was created on the first run); only the
+      # attached .exe files are swapped out so download URLs never change.
+      - name: Update rolling release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: latest
+          name: "CosmicSSH — Latest"
+          allowUpdates: true
+          removeArtifacts: true
+          replacesArtifacts: true
+          makeLatest: true
+          prerelease: false
+          artifacts: "release/*.exe"
+          body: |
+            Automated build — commit [`${{ github.sha }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
+
+            | File | What it is |
+            |------|----------|
+            | `CosmicSSH-Setup-x64.exe` | Installer (per-user, adds Start Menu + desktop shortcut) |
+            | `CosmicSSH-x64-portable.exe` | Portable — drop anywhere, no install required |
+
+            _Updated automatically on every push to `main`._
+          token: ${{ secrets.GITHUB_TOKEN }}
