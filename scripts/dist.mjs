@@ -8,8 +8,10 @@
 // the cache directory exists; if it does, it skips the download+extraction.
 // winCodeSign bundles macOS dylib symlinks that 7-Zip cannot extract on
 // Windows without the "Create symbolic links" privilege (absent on corporate
-// machines). Since we have no signing cert, the tools inside winCodeSign are
-// never actually invoked — only the directory existence matters.
+// machines without dev mode). The stub is skipped on CI (GitHub Actions sets
+// CI=true) because those VMs do have symlink rights and need the real binaries
+// — rcedit-x64.exe inside winCodeSign is required to stamp version metadata
+// into the packaged exe even when code signing is disabled.
 
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync } from 'node:fs'
@@ -20,10 +22,10 @@ import { createRequire } from 'node:module'
 
 process.env.CSC_IDENTITY_AUTO_DISCOVERY = 'false'
 
-// Pre-create the winCodeSign cache directory (Windows only — LOCALAPPDATA is
-// set on Windows, absent on Linux/macOS where this workaround isn't needed).
+// Pre-create the winCodeSign cache directory (Windows only, non-CI only).
+// LOCALAPPDATA is absent on Linux/macOS so the block is always skipped there.
 const localAppData = process.env.LOCALAPPDATA
-if (localAppData) {
+if (localAppData && !process.env.CI) {
   const winCodeSignDir = join(
     localAppData, 'electron-builder', 'Cache', 'winCodeSign', 'winCodeSign-2.6.0',
   )
