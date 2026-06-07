@@ -14,10 +14,78 @@ type FontGroup = { group: string; fonts: FontChoice[] }
 // in both chrome and xterm. Groups rendered as <optgroup> in the picker.
 const FONT_GROUPS: FontGroup[] = [
   {
-    group: 'Bundled — always available',
+    group: 'Sans Serif — Google Fonts',
     fonts: [
-      { label: 'JetBrains Mono', value: '"JetBrains Mono", monospace' },
-      { label: 'Inter', value: 'Inter, system-ui, sans-serif' },
+      { label: 'Roboto', value: "'Roboto', sans-serif" },
+      { label: 'Open Sans', value: "'Open Sans', sans-serif" },
+      { label: 'Lato', value: "'Lato', sans-serif" },
+      { label: 'Montserrat', value: "'Montserrat', sans-serif" },
+      { label: 'Poppins', value: "'Poppins', sans-serif" },
+      { label: 'Inter', value: "'Inter', sans-serif" },
+      { label: 'Oswald', value: "'Oswald', sans-serif" },
+      { label: 'Raleway', value: "'Raleway', sans-serif" },
+      { label: 'Noto Sans', value: "'Noto Sans', sans-serif" },
+      { label: 'Roboto Condensed', value: "'Roboto Condensed', sans-serif" },
+      { label: 'Source Sans 3', value: "'Source Sans 3', sans-serif" },
+      { label: 'Nunito Sans', value: "'Nunito Sans', sans-serif" },
+      { label: 'Work Sans', value: "'Work Sans', sans-serif" },
+      { label: 'Rubik', value: "'Rubik', sans-serif" },
+      { label: 'PT Sans', value: "'PT Sans', sans-serif" },
+      { label: 'Ubuntu', value: "'Ubuntu', sans-serif" },
+      { label: 'Fira Sans', value: "'Fira Sans', sans-serif" },
+      { label: 'Cabin', value: "'Cabin', sans-serif" },
+      { label: 'Quicksand', value: "'Quicksand', sans-serif" },
+      { label: 'Mulish', value: "'Mulish', sans-serif" },
+      { label: 'Karla', value: "'Karla', sans-serif" },
+      { label: 'Hind', value: "'Hind', sans-serif" },
+      { label: 'Assistant', value: "'Assistant', sans-serif" },
+      { label: 'Heebo', value: "'Heebo', sans-serif" },
+    ],
+  },
+  {
+    group: 'Serif — Google Fonts',
+    fonts: [
+      { label: 'Merriweather', value: "'Merriweather', serif" },
+      { label: 'Playfair Display', value: "'Playfair Display', serif" },
+      { label: 'Libre Baskerville', value: "'Libre Baskerville', serif" },
+      { label: 'Crimson Text', value: "'Crimson Text', serif" },
+      { label: 'Bitter', value: "'Bitter', serif" },
+      { label: 'Lora', value: "'Lora', serif" },
+      { label: 'EB Garamond', value: "'EB Garamond', serif" },
+      { label: 'Cormorant Garamond', value: "'Cormorant Garamond', serif" },
+      { label: 'Arvo', value: "'Arvo', serif" },
+      { label: 'Domine', value: "'Domine', serif" },
+    ],
+  },
+  {
+    group: 'Slab Serif — Google Fonts',
+    fonts: [
+      { label: 'Roboto Slab', value: "'Roboto Slab', serif" },
+      { label: 'Zilla Slab', value: "'Zilla Slab', serif" },
+      { label: 'Alfa Slab One', value: "'Alfa Slab One', serif" },
+    ],
+  },
+  {
+    group: 'Modern Sans — Google Fonts',
+    fonts: [
+      { label: 'Space Grotesk', value: "'Space Grotesk', sans-serif" },
+      { label: 'Manrope', value: "'Manrope', sans-serif" },
+      { label: 'Sora', value: "'Sora', sans-serif" },
+      { label: 'Outfit', value: "'Outfit', sans-serif" },
+      { label: 'Plus Jakarta Sans', value: "'Plus Jakarta Sans', sans-serif" },
+      { label: 'Lexend', value: "'Lexend', sans-serif" },
+      { label: 'DM Sans', value: "'DM Sans', sans-serif" },
+    ],
+  },
+  {
+    group: 'Monospace — Google Fonts',
+    fonts: [
+      { label: 'JetBrains Mono', value: "'JetBrains Mono', monospace" },
+      { label: 'Inconsolata', value: "'Inconsolata', monospace" },
+      { label: 'Roboto Mono', value: "'Roboto Mono', monospace" },
+      { label: 'Fira Code', value: "'Fira Code', monospace" },
+      { label: 'Space Mono', value: "'Space Mono', monospace" },
+      { label: 'Source Code Pro', value: "'Source Code Pro', monospace" },
     ],
   },
   {
@@ -56,8 +124,8 @@ const FONT_GROUPS: FontGroup[] = [
   {
     group: 'Monospace — install separately',
     fonts: [
-      { label: 'Fira Code', value: '"Fira Code", Consolas, monospace' },
-      { label: 'Source Code Pro', value: '"Source Code Pro", Consolas, monospace' },
+      { label: 'Fira Code (system)', value: '"Fira Code", Consolas, monospace' },
+      { label: 'Source Code Pro (system)', value: '"Source Code Pro", Consolas, monospace' },
       { label: 'IBM Plex Mono', value: '"IBM Plex Mono", Consolas, monospace' },
       { label: 'Hack', value: 'Hack, Consolas, monospace' },
       { label: 'Ubuntu Mono', value: '"Ubuntu Mono", Consolas, monospace' },
@@ -295,7 +363,7 @@ export function Settings({ onClose }: Props) {
           </span>
         </label>
 
-        {/* ── Terminal & SFTP ──────────────────────────────────────────────────── */}
+        {/* ── Terminal & SFTP ──────────────────────────────────────────── */}
         <h3 style={{ marginTop: 20 }}>Terminal &amp; SFTP</h3>
 
         <label>
