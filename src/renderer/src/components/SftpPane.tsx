@@ -563,19 +563,28 @@ export const SftpPane = forwardRef<SftpPaneHandle, Props>(function SftpPane(
       return
     }
     // Letter/number key: jump to the first entry whose name starts with that
-    // character (case-insensitive). Mirrors the keyboard navigation in
-    // Windows Explorer / macOS Finder. Skip when a modifier is held or the
-    // user is typing in an input field.
+    // character (case-insensitive), and on repeated presses of the same key,
+    // cycle through every matching entry and loop back to the top. Mirrors the
+    // typeahead navigation in Windows Explorer / macOS Finder. Skip when a
+    // modifier is held or the user is typing in an input field.
     if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1) {
       const tgt = e.target as HTMLElement
       if (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA') return
       e.preventDefault()
       const char = e.key.toLowerCase()
-      const match = sorted.find((it) => it.name.toLowerCase().startsWith(char))
-      if (!match) return
-      setSelected(new Set([match.name]))
-      setAnchorName(match.name)
-      const idx = sorted.indexOf(match)
+      // All entries starting with this character, in display order.
+      const matches = sorted.filter((it) => it.name.toLowerCase().startsWith(char))
+      if (matches.length === 0) return
+      // If the current single selection is one of the matches, advance to the
+      // next (wrapping past the end); otherwise jump to the first match. The
+      // selection itself is the cursor, so no extra state is needed to track
+      // where we are in the cycle.
+      const currentName = selected.size === 1 ? [...selected][0] : null
+      const pos = currentName ? matches.findIndex((it) => it.name === currentName) : -1
+      const next = matches[(pos + 1) % matches.length]!
+      setSelected(new Set([next.name]))
+      setAnchorName(next.name)
+      const idx = sorted.indexOf(next)
       const rows = paneRef.current?.querySelectorAll<HTMLElement>('.sftp-row:not(.sftp-head)')
       rows?.[idx]?.scrollIntoView({ block: 'nearest' })
     }
