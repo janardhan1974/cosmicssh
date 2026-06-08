@@ -9,76 +9,12 @@ type Props = {
 type FontChoice = { label: string; value: string }
 type FontGroup = { group: string; fonts: FontChoice[] }
 
-// Single font list used for both the sidebar/chrome and the terminal.
-// Proportional fonts work fine for the UI chrome; monospace fonts work
-// in both chrome and xterm. Groups rendered as <optgroup> in the picker.
+// Monospace-only font list — proportional fonts break xterm character cell
+// width and produce wide uneven spacing in the terminal. Only monospace
+// faces are listed. Groups rendered as <optgroup> in the picker.
 const FONT_GROUPS: FontGroup[] = [
   {
-    group: 'Sans Serif — Google Fonts',
-    fonts: [
-      { label: 'Roboto', value: "'Roboto', sans-serif" },
-      { label: 'Open Sans', value: "'Open Sans', sans-serif" },
-      { label: 'Lato', value: "'Lato', sans-serif" },
-      { label: 'Montserrat', value: "'Montserrat', sans-serif" },
-      { label: 'Poppins', value: "'Poppins', sans-serif" },
-      { label: 'Inter', value: "'Inter', sans-serif" },
-      { label: 'Oswald', value: "'Oswald', sans-serif" },
-      { label: 'Raleway', value: "'Raleway', sans-serif" },
-      { label: 'Noto Sans', value: "'Noto Sans', sans-serif" },
-      { label: 'Roboto Condensed', value: "'Roboto Condensed', sans-serif" },
-      { label: 'Source Sans 3', value: "'Source Sans 3', sans-serif" },
-      { label: 'Nunito Sans', value: "'Nunito Sans', sans-serif" },
-      { label: 'Work Sans', value: "'Work Sans', sans-serif" },
-      { label: 'Rubik', value: "'Rubik', sans-serif" },
-      { label: 'PT Sans', value: "'PT Sans', sans-serif" },
-      { label: 'Ubuntu', value: "'Ubuntu', sans-serif" },
-      { label: 'Fira Sans', value: "'Fira Sans', sans-serif" },
-      { label: 'Cabin', value: "'Cabin', sans-serif" },
-      { label: 'Quicksand', value: "'Quicksand', sans-serif" },
-      { label: 'Mulish', value: "'Mulish', sans-serif" },
-      { label: 'Karla', value: "'Karla', sans-serif" },
-      { label: 'Hind', value: "'Hind', sans-serif" },
-      { label: 'Assistant', value: "'Assistant', sans-serif" },
-      { label: 'Heebo', value: "'Heebo', sans-serif" },
-    ],
-  },
-  {
-    group: 'Serif — Google Fonts',
-    fonts: [
-      { label: 'Merriweather', value: "'Merriweather', serif" },
-      { label: 'Playfair Display', value: "'Playfair Display', serif" },
-      { label: 'Libre Baskerville', value: "'Libre Baskerville', serif" },
-      { label: 'Crimson Text', value: "'Crimson Text', serif" },
-      { label: 'Bitter', value: "'Bitter', serif" },
-      { label: 'Lora', value: "'Lora', serif" },
-      { label: 'EB Garamond', value: "'EB Garamond', serif" },
-      { label: 'Cormorant Garamond', value: "'Cormorant Garamond', serif" },
-      { label: 'Arvo', value: "'Arvo', serif" },
-      { label: 'Domine', value: "'Domine', serif" },
-    ],
-  },
-  {
-    group: 'Slab Serif — Google Fonts',
-    fonts: [
-      { label: 'Roboto Slab', value: "'Roboto Slab', serif" },
-      { label: 'Zilla Slab', value: "'Zilla Slab', serif" },
-      { label: 'Alfa Slab One', value: "'Alfa Slab One', serif" },
-    ],
-  },
-  {
-    group: 'Modern Sans — Google Fonts',
-    fonts: [
-      { label: 'Space Grotesk', value: "'Space Grotesk', sans-serif" },
-      { label: 'Manrope', value: "'Manrope', sans-serif" },
-      { label: 'Sora', value: "'Sora', sans-serif" },
-      { label: 'Outfit', value: "'Outfit', sans-serif" },
-      { label: 'Plus Jakarta Sans', value: "'Plus Jakarta Sans', sans-serif" },
-      { label: 'Lexend', value: "'Lexend', sans-serif" },
-      { label: 'DM Sans', value: "'DM Sans', sans-serif" },
-    ],
-  },
-  {
-    group: 'Monospace — Google Fonts',
+    group: 'Monospace — Google Fonts (bundled)',
     fonts: [
       { label: 'JetBrains Mono', value: "'JetBrains Mono', monospace" },
       { label: 'Inconsolata', value: "'Inconsolata', monospace" },
@@ -86,28 +22,6 @@ const FONT_GROUPS: FontGroup[] = [
       { label: 'Fira Code', value: "'Fira Code', monospace" },
       { label: 'Space Mono', value: "'Space Mono', monospace" },
       { label: 'Source Code Pro', value: "'Source Code Pro', monospace" },
-    ],
-  },
-  {
-    group: 'Sans-serif — Windows built-in',
-    fonts: [
-      { label: 'Segoe UI', value: '"Segoe UI", system-ui, sans-serif' },
-      { label: 'Calibri', value: 'Calibri, "Segoe UI", sans-serif' },
-      { label: 'Arial', value: 'Arial, "Helvetica Neue", sans-serif' },
-      { label: 'Verdana', value: 'Verdana, Geneva, sans-serif' },
-      { label: 'Tahoma', value: 'Tahoma, Geneva, sans-serif' },
-      { label: 'Trebuchet MS', value: '"Trebuchet MS", sans-serif' },
-      { label: 'Century Gothic', value: '"Century Gothic", Futura, sans-serif' },
-    ],
-  },
-  {
-    group: 'Serif — Windows built-in',
-    fonts: [
-      { label: 'Georgia', value: 'Georgia, serif' },
-      { label: 'Times New Roman', value: '"Times New Roman", Times, serif' },
-      { label: 'Palatino Linotype', value: '"Palatino Linotype", Palatino, serif' },
-      { label: 'Book Antiqua', value: '"Book Antiqua", Palatino, serif' },
-      { label: 'Garamond', value: 'Garamond, serif' },
     ],
   },
   {
