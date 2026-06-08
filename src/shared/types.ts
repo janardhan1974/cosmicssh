@@ -116,7 +116,7 @@ export const IPC_LOCAL_REVEAL = 'local:reveal' as const
 export const IPC_LOCAL_DELETE = 'local:delete' as const
 export const IPC_LOCAL_PLATFORM = 'local:platform' as const
 
-// ─── Session-logging channels ─────────────────────────────────────────────
+// ─── Session-logging channels ────────────────────────────────────────────
 // status:   query whether logging is on for a sessionId + where the file is
 // save:     dump pre-stripped scrollback text from the renderer into a file
 //           under <storage-dir>/sessions/
@@ -263,8 +263,6 @@ export type CredentialIdPayload = {
 }
 
 // ─── Settings ─────────────────────────────────────────────────────────────
-// Currently terminal + theme. Will grow as M8 lands cursor/bell options.
-
 export type AppTheme = 'dark' | 'light' | 'blue'
 
 export const APP_THEMES: { value: AppTheme; label: string }[] = [
@@ -312,13 +310,13 @@ export type TerminalSettings = {
 }
 
 export const DEFAULT_TERMINAL_SETTINGS: TerminalSettings = {
-  fontFamily: "'Fira Code', monospace",
-  fontSize: 11,
+  fontFamily: "'Source Code Pro', monospace",
+  fontSize: 13,
   theme: 'dark',
-  textColor: null,
-  brightness: 0,
+  textColor: '#ffffff',
+  brightness: 100,
   sidebarBackground: null,
-  terminalBackground: null,
+  terminalBackground: '#080808',
   chromeBackground: null,
   uiFontFamily: '"Segoe UI", system-ui, -apple-system, sans-serif',
   uiFontSize: 12,
@@ -438,7 +436,7 @@ export type LocalDeletePayload = {
   isDirectory: boolean
 }
 
-// ─── Session-logging payloads ─────────────────────────────────────────────
+// ─── Session-logging payloads ────────────────────────────────────────────
 export type LoggingStatusPayload = { sessionId: string }
 export type LoggingStatusResult = {
   // null = not logging for this sessionId; string = absolute path
