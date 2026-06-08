@@ -8,6 +8,7 @@ type Props = {
   isActive: boolean
   onClose: (sessionId: string) => void
   onReconnect: (sessionId: string) => void
+  onDoubleClick?: () => void
 }
 
 // Per-tile header that travels with its terminal/SFTP pane when the user
@@ -15,7 +16,7 @@ type Props = {
 // the global TabBar's tab so the two layouts feel coherent — same icon,
 // label, REC indicator, close button, and right-click menu. The global
 // TabBar is hidden in tile modes (it'd just duplicate every header).
-export function TileHeader({ tab, isActive, onClose, onReconnect }: Props) {
+export function TileHeader({ tab, isActive, onClose, onReconnect, onDoubleClick }: Props) {
   const setActive = useSessionsStore((s) => s.setActive)
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
 
@@ -34,6 +35,7 @@ export function TileHeader({ tab, isActive, onClose, onReconnect }: Props) {
       role="tab"
       aria-selected={isActive}
       onClick={() => setActive(tab.sessionId)}
+      onDoubleClick={onDoubleClick}
       onContextMenu={(e) => {
         e.preventDefault()
         setActive(tab.sessionId)

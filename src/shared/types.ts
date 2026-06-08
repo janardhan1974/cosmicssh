@@ -312,8 +312,8 @@ export type TerminalSettings = {
 }
 
 export const DEFAULT_TERMINAL_SETTINGS: TerminalSettings = {
-  fontFamily: '"Cascadia Mono", Consolas, "Courier New", monospace',
-  fontSize: 13,
+  fontFamily: "'Fira Code', monospace",
+  fontSize: 11,
   theme: 'dark',
   textColor: null,
   brightness: 0,

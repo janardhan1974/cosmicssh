@@ -36,6 +36,7 @@ type Props = {
   // sight. Read on each pointer move (the container can resize too).
   containerRef: React.RefObject<HTMLDivElement>
   onClose: () => void
+  onDoubleClick?: () => void
 }
 
 // Resolve a new rect from a starting rect, a gesture direction, the pointer
@@ -91,7 +92,7 @@ function resizedRect(
 //
 // Positioning of the parent .tab-content is set inline by the caller from
 // the floating rect. We just handle the user gestures that mutate that rect.
-export function FloatingChrome({ sessionId, title, containerRef, onClose }: Props) {
+export function FloatingChrome({ sessionId, title, containerRef, onClose, onDoubleClick }: Props) {
   const rect = useSessionsStore((s) => s.floating[sessionId])
   const updateFloating = useSessionsStore((s) => s.updateFloating)
   const bringToFront = useSessionsStore((s) => s.bringToFront)
@@ -174,7 +175,7 @@ export function FloatingChrome({ sessionId, title, containerRef, onClose }: Prop
           if (target.closest('button')) return
           startGesture(e, 'move')
         }}
-        onDoubleClick={(e) => e.preventDefault()}
+        onDoubleClick={(e) => { e.preventDefault(); onDoubleClick?.() }}
       >
         <span className="floating-window-title" title={title}>{title}</span>
         <div className="floating-window-controls">
