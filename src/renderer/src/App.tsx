@@ -477,7 +477,7 @@ export function App() {
     [handleConnectFromSidebar, surface],
   )
 
-  // ─── Menu bar wiring ─────────────────────────────────────────────────────
+  // ─── Menu bar wiring ──────────────────────────────────────────────────
   // Renderer-local handlers wrap the existing state setters; main-side ones
   // call the IPC dispatcher in main/index.ts. Stable refs via useCallback so
   // the menus prop into <MenuBar> doesn't re-create every render.
@@ -679,6 +679,7 @@ export function App() {
                 containerRef={terminalStackRef}
                 onCloseTab={handleCloseTab}
                 onReconnect={handleReconnectTab}
+                onSingleView={setLayoutSingle}
               />
             )
             // In tile modes, drop a draggable divider between every adjacent
@@ -761,6 +762,7 @@ type TabCellProps = {
   containerRef: React.RefObject<HTMLDivElement>
   onCloseTab: (sessionId: string) => void
   onReconnect: (sessionId: string) => void
+  onSingleView: () => void
 }
 
 function TabCell({
@@ -770,6 +772,7 @@ function TabCell({
   containerRef,
   onCloseTab,
   onReconnect,
+  onSingleView,
 }: TabCellProps) {
   const rect = useSessionsStore((s) => s.floating[tab.sessionId])
   // Per-tile flex weight. Subscribed so TileDivider drags re-render only
@@ -840,6 +843,7 @@ function TabCell({
           title={tab.profile.name}
           containerRef={containerRef}
           onClose={() => onCloseTab(tab.sessionId)}
+          onDoubleClick={onSingleView}
         />
       )}
       {tiled && (
@@ -848,6 +852,7 @@ function TabCell({
           isActive={isActive}
           onClose={onCloseTab}
           onReconnect={onReconnect}
+          onDoubleClick={onSingleView}
         />
       )}
       {/* TerminalView stays mounted across mode switches AND layout switches —

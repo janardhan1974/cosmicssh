@@ -454,7 +454,7 @@ export const SftpPane = forwardRef<SftpPaneHandle, Props>(function SftpPane(
     [reload, kind, path, entries, selected],
   )
 
-  // ─── Drag and drop ─────────────────────────────────────────────────────
+  // ─── Drag and drop ──────────────────────────────────────────────────────
   const handleDragStart = (e: React.DragEvent, entry: FsEntry) => {
     // Standard file-manager drag rule: dragging an item that's part of the
     // current selection drags THE WHOLE selection. Dragging an item that's
@@ -560,6 +560,24 @@ export const SftpPane = forwardRef<SftpPaneHandle, Props>(function SftpPane(
       if (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA') return
       e.preventDefault()
       selectAll()
+      return
+    }
+    // Letter/number key: jump to the first entry whose name starts with that
+    // character (case-insensitive). Mirrors the keyboard navigation in
+    // Windows Explorer / macOS Finder. Skip when a modifier is held or the
+    // user is typing in an input field.
+    if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1) {
+      const tgt = e.target as HTMLElement
+      if (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA') return
+      e.preventDefault()
+      const char = e.key.toLowerCase()
+      const match = sorted.find((it) => it.name.toLowerCase().startsWith(char))
+      if (!match) return
+      setSelected(new Set([match.name]))
+      setAnchorName(match.name)
+      const idx = sorted.indexOf(match)
+      const rows = paneRef.current?.querySelectorAll<HTMLElement>('.sftp-row:not(.sftp-head)')
+      rows?.[idx]?.scrollIntoView({ block: 'nearest' })
     }
   }
 
