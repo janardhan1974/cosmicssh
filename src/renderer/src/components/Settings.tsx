@@ -363,7 +363,7 @@ export function Settings({ onClose }: Props) {
           </span>
         </label>
 
-        {/* ── Terminal & SFTP ──────────────────────────────────────────── */}
+        {/* ── Terminal & SFTP ──────────────────────────────────────────────────── */}
         <h3 style={{ marginTop: 20 }}>Terminal &amp; SFTP</h3>
 
         <label>
