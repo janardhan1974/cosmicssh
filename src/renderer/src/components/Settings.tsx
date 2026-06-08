@@ -155,6 +155,16 @@ export function Settings({ onClose }: Props) {
       <form className="modal settings-modal" onSubmit={handleSubmit}>
         <h2>Display settings</h2>
 
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={false}
+            onChange={(e) => { if (e.target.checked) revertToDefault() }}
+            disabled={busy}
+          />
+          <span>Revert to default</span>
+        </label>
+
         {/* ── Font (global — applies to sidebar and terminal alike) ─── */}
         <h3>Font</h3>
 
@@ -286,16 +296,6 @@ export function Settings({ onClose }: Props) {
 
         {/* ── Terminal & SFTP ──────────────────────────────────────────────────── */}
         <h3 style={{ marginTop: 20 }}>Terminal &amp; SFTP</h3>
-
-        <label className="checkbox">
-          <input
-            type="checkbox"
-            checked={false}
-            onChange={(e) => { if (e.target.checked) revertToDefault() }}
-            disabled={busy}
-          />
-          <span>Revert to default</span>
-        </label>
 
         <label>
           <span>Background</span>
