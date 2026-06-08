@@ -18,7 +18,7 @@ import { useProfilesStore } from './stores/profiles-store'
 import { tabFromProfile, useSessionsStore, type Tab } from './stores/sessions-store'
 import { useSettingsStore } from './stores/settings-store'
 import { useTransfersStore } from './stores/transfers-store'
-import { getEffectiveUiFg, darkenHex } from './lib/color-schemes'
+import { getEffectiveUiFg, darkenHex, brightenHex } from './lib/color-schemes'
 import type { HostKeyPromptEvent, SessionProfile, TabLayout } from '../../shared/types'
 
 // Sidebar width is layout state — kept in renderer-side localStorage rather
@@ -116,6 +116,8 @@ export function App() {
   const settingsLoaded = useSettingsStore((s) => s.loaded)
   const theme = useSettingsStore((s) => s.terminal.theme)
   const terminalBackground = useSettingsStore((s) => s.terminal.terminalBackground)
+  const textColor = useSettingsStore((s) => s.terminal.textColor)
+  const brightness = useSettingsStore((s) => s.terminal.brightness)
   const chromeBackground = useSettingsStore((s) => s.terminal.chromeBackground)
   // UI-text tier (chrome only — distinct from terminal.fontFamily / textColor /
   // brightness which are xterm-only after the two-tier split).
@@ -219,6 +221,20 @@ export function App() {
       terminalBackground ?? '#0f0f10',
     )
   }, [terminalBackground])
+
+  // Publish --fg-terminal: the resolved terminal text colour (textColor lerped
+  // toward white by the brightness slider). The SFTP pane reads this so its
+  // file list follows the "Terminal & SFTP" text setting, NOT the chrome --fg
+  // (the menubar/sidebar/tab-bar text colour). Mirrors TerminalView's
+  // effectiveTheme foreground math so xterm and the SFTP pane stay in step.
+  useEffect(() => {
+    const base = textColor ?? '#e8e6e3'
+    const resolved =
+      brightness > 0
+        ? brightenHex(base, Math.min(100, Math.max(0, brightness)) / 100)
+        : base
+    document.documentElement.style.setProperty('--fg-terminal', resolved)
+  }, [textColor, brightness])
 
   // Chrome background override (menubar + sidebar + tab bar). null = theme tokens.
   // Also publishes --bg-chrome-hover as a 12%-darkened version for hover states

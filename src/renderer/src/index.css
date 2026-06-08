@@ -1210,6 +1210,10 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   min-width: 0;
   min-height: 0;
   background: var(--bg-terminal, var(--bg));
+  /* File list text follows the "Terminal & SFTP" text colour (--fg-terminal),
+     not the chrome text colour (--fg) — the pane sits on the terminal
+     background, so it must use the terminal foreground to stay legible. */
+  color: var(--fg-terminal, var(--fg));
   outline: none; /* focusable for Shift+Delete; suppress browser focus ring */
 }
 
@@ -1240,7 +1244,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   font-size: 12px;
   padding: 5px 8px;
   background: var(--bg-terminal, var(--bg));
-  color: var(--fg);
+  color: var(--fg-terminal, var(--fg));
   border: 1px solid var(--border);
   border-radius: 3px;
   outline: none;
@@ -1322,7 +1326,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .sftp-row:hover { background: var(--bg-elevated); }
 .sftp-row.selected {
   background: var(--border);
-  color: var(--fg);
+  color: var(--fg-terminal, var(--fg));
 }
 .sftp-row.drag-target-row {
   background: var(--success-bg);

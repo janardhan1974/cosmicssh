@@ -228,7 +228,7 @@ function SidebarImpl({ onConnect, onEdit, onNewProfile, onOpenSettings, onHide }
       }}
     >
       <header className="sidebar-header">
-        <span className="sidebar-title">Profiles</span>
+        <span className="sidebar-title">Servers</span>
         <div className="sidebar-actions">
           <button
             type="button"
