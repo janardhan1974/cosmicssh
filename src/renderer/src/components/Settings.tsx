@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useSettingsStore } from '../stores/settings-store'
+import { DEFAULT_TERMINAL_SETTINGS } from '../../../shared/types'
 import { ModalBackdrop } from './ModalBackdrop'
 
 type Props = {
@@ -92,6 +93,16 @@ export function Settings({ onClose }: Props) {
   const previewUiBrightness = (n: number) => {
     setUiBrightness(n)
     useSettingsStore.setState((s) => ({ terminal: { ...s.terminal, uiBrightness: n } }))
+  }
+
+  // "Revert to default" — resets the Terminal & SFTP controls (background,
+  // text colour, text size, text brightness) to DEFAULT_TERMINAL_SETTINGS.
+  // Brightness goes through previewBrightness so the change is visible live.
+  const revertToDefault = () => {
+    setTerminalBackground(DEFAULT_TERMINAL_SETTINGS.terminalBackground ?? '#080808')
+    setTextColor(DEFAULT_TERMINAL_SETTINGS.textColor ?? '#ffffff')
+    setFontSize(DEFAULT_TERMINAL_SETTINGS.fontSize)
+    previewBrightness(DEFAULT_TERMINAL_SETTINGS.brightness)
   }
 
   const revertPreview = () => {
@@ -275,6 +286,16 @@ export function Settings({ onClose }: Props) {
 
         {/* ── Terminal & SFTP ──────────────────────────────────────────────────── */}
         <h3 style={{ marginTop: 20 }}>Terminal &amp; SFTP</h3>
+
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={false}
+            onChange={(e) => { if (e.target.checked) revertToDefault() }}
+            disabled={busy}
+          />
+          <span>Revert to default</span>
+        </label>
 
         <label>
           <span>Background</span>
