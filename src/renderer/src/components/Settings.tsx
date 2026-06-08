@@ -172,10 +172,6 @@ export function Settings({ onClose }: Props) {
           </select>
         </label>
 
-        <div className="font-preview" style={{ fontFamily, fontSize: `${fontSize}px` }}>
-          {'$ ssh user@host — 1234567890 — AaBbCcDd'}
-        </div>
-
         {/* ── Menubar · Sidebar · Tab bar ───────────────────────────────────── */}
         <h3 style={{ marginTop: 20 }}>Menubar · Sidebar · Tab bar</h3>
 
