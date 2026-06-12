@@ -94,6 +94,13 @@ type State = {
   // pointermove tick, and doing it as one set keeps the store consistent
   // (and avoids two re-render passes per frame).
   setTileWeights: (next: Record<string, number>) => void
+  // Reorder tabs by dragging. Both indices are within bounds; out-of-range
+  // calls are silently ignored.
+  reorderTabs: (fromIdx: number, toIdx: number) => void
+  // Terminal grid dimensions for the active session, updated by TerminalView
+  // on every xterm resize event. Drives the status bar cols/rows readout.
+  terminalDimensions: Record<string, { cols: number; rows: number }>
+  setTerminalDimensions: (sessionId: string, cols: number, rows: number) => void
 }
 
 export const useSessionsStore = create<State>((set, get) => ({
@@ -102,6 +109,7 @@ export const useSessionsStore = create<State>((set, get) => ({
   floating: {},
   zSeq: 0,
   tileWeights: {},
+  terminalDimensions: {},
   addTab: (tab) =>
     set({ tabs: [...get().tabs, tab], activeId: tab.sessionId }),
   setActive: (sessionId) => set({ activeId: sessionId }),
@@ -219,6 +227,21 @@ export const useSessionsStore = create<State>((set, get) => ({
     }),
   setTileWeights: (next) =>
     set((s) => ({ tileWeights: { ...s.tileWeights, ...next } })),
+  reorderTabs: (fromIdx, toIdx) => {
+    const tabs = [...get().tabs]
+    if (
+      fromIdx < 0 || toIdx < 0 ||
+      fromIdx >= tabs.length || toIdx >= tabs.length ||
+      fromIdx === toIdx
+    ) return
+    const [moved] = tabs.splice(fromIdx, 1)
+    tabs.splice(toIdx, 0, moved!)
+    set({ tabs })
+  },
+  setTerminalDimensions: (sessionId, cols, rows) =>
+    set((s) => ({
+      terminalDimensions: { ...s.terminalDimensions, [sessionId]: { cols, rows } },
+    })),
 }))
 
 export function tabFromProfile(

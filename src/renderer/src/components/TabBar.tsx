@@ -34,7 +34,10 @@ export function TabBar({ onCloseTab, onReconnect, onClone }: Props) {
   const activeId = useSessionsStore((s) => s.activeId)
   const setActive = useSessionsStore((s) => s.setActive)
   const setCustomLabel = useSessionsStore((s) => s.setCustomLabel)
+  const reorderTabs = useSessionsStore((s) => s.reorderTabs)
   const [menu, setMenu] = useState<MenuState>(null)
+  const [dragOver, setDragOver] = useState<number | null>(null)
+  const dragSrcIdx = useRef<number | null>(null)
   // Which tab (if any) is currently being inline-renamed, plus the draft
   // string the user is editing. Cleared on commit (Enter / blur) or cancel
   // (Escape). Tracking by sessionId rather than index so the edit follows
@@ -72,7 +75,7 @@ export function TabBar({ onCloseTab, onReconnect, onClone }: Props) {
   const cancelRename = (): void => setRenaming(null)
 
   // Tab right-click menu. Rename is always available (purely visual, works
-  // for ad-hoc tabs too). Reconnect requires a saved profile id; shown
+  // for ad-hoc tabs too). Reconnect/Clone require a saved profile id; shown
   // disabled with a hint when unavailable so the menu shape is stable.
   const menuItems = (sessionId: string): ContextMenuItem[] => {
     const tab = tabs.find((t) => t.sessionId === sessionId)
@@ -84,6 +87,12 @@ export function TabBar({ onCloseTab, onReconnect, onClone }: Props) {
         onClick: () => onReconnect(sessionId),
         disabled: isAdHoc,
       },
+      {
+        label: isAdHoc ? 'Clone (needs a saved profile)' : 'Clone',
+        onClick: () => onClone(sessionId),
+        disabled: isAdHoc,
+      },
+      { label: 'Save scrollback…', onClick: () => void saveScrollback(sessionId) },
     ]
   }
 
@@ -115,7 +124,7 @@ export function TabBar({ onCloseTab, onReconnect, onClone }: Props) {
 
   return (
     <div className="tab-bar" role="tablist">
-      {tabs.map((tab) => {
+      {tabs.map((tab, tabIdx) => {
         const isActive = tab.sessionId === activeId
         // Stable accent color per tab. Prefer profile.id so the color stays
         // the same across reconnects (replaceSession swaps sessionId but
@@ -129,8 +138,31 @@ export function TabBar({ onCloseTab, onReconnect, onClone }: Props) {
             key={tab.sessionId}
             role="tab"
             aria-selected={isActive}
-            className={`tab ${isActive ? 'active' : ''} ${tab.status}`}
+            className={`tab ${isActive ? 'active' : ''} ${tab.status}${dragOver === tabIdx ? ' drag-over' : ''}`}
             style={tabStyle}
+            draggable
+            onDragStart={(e) => {
+              dragSrcIdx.current = tabIdx
+              e.dataTransfer.effectAllowed = 'move'
+            }}
+            onDragOver={(e) => {
+              e.preventDefault()
+              e.dataTransfer.dropEffect = 'move'
+              setDragOver(tabIdx)
+            }}
+            onDragLeave={() => setDragOver(null)}
+            onDrop={(e) => {
+              e.preventDefault()
+              setDragOver(null)
+              if (dragSrcIdx.current !== null && dragSrcIdx.current !== tabIdx) {
+                reorderTabs(dragSrcIdx.current, tabIdx)
+              }
+              dragSrcIdx.current = null
+            }}
+            onDragEnd={() => {
+              setDragOver(null)
+              dragSrcIdx.current = null
+            }}
             onClick={() => setActive(tab.sessionId)}
             onContextMenu={(e) => {
               e.preventDefault()
