@@ -7,6 +7,8 @@ import { ModalBackdrop } from './ModalBackdrop'
 type Props = {
   mode: 'create' | 'edit'
   initial?: SessionProfile
+  // Pre-fill the Group field when creating via "New session in this folder".
+  initialGroup?: string
   onCancel: () => void
   onSave: (saved: SessionProfile, password: string | null) => void
   // If provided, the editor offers a "Save & Connect" button.
@@ -16,18 +18,19 @@ type Props = {
 export function ProfileEditor({
   mode,
   initial,
+  initialGroup,
   onCancel,
   onSave,
   onSaveAndConnect,
 }: Props) {
   const [name, setName] = useState(initial?.name ?? '')
-  const [group, setGroup] = useState(initial?.group ?? '')
+  const [group, setGroup] = useState(initial?.group ?? initialGroup ?? '')
   const [host, setHost] = useState(initial?.host ?? '')
   const [port, setPort] = useState(String(initial?.port ?? 22))
   const [username, setUsername] = useState(initial?.username ?? '')
   const [password, setPassword] = useState('')
   const [savePassword, setSavePassword] = useState(initial?.savePassword ?? false)
-  const [logSession, setLogSession] = useState(initial?.logSession ?? false)
+  const [logSession, setLogSession] = useState(initial?.logSession ?? true)
   const [jumpHost, setJumpHost] = useState<string>(initial?.jumpHost ?? '')
   // 'ssh' (shell + SFTP in one session) is back-compat only — existing saved
   // profiles still load and connect, but the picker no longer offers it.

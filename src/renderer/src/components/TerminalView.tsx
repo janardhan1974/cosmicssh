@@ -7,6 +7,7 @@ import type { ITheme } from '@xterm/xterm'
 import { brightenHex } from '../lib/color-schemes'
 import { registerTerminal, unregisterTerminal } from '../lib/terminal-registry'
 import { useSettingsStore } from '../stores/settings-store'
+import { useSessionsStore } from '../stores/sessions-store'
 
 const TERMINAL_BG_DEFAULT = '#0f0f10'
 const TERMINAL_FG_DEFAULT = '#e8e6e3'
@@ -123,7 +124,7 @@ export function TerminalView({ sessionId, isActive }: Props) {
     // fonts.ready corrects any wrong cell width without restructuring the effect.
     void document.fonts.ready.then(() => { fitRef.current?.fit() })
 
-    // ── xterm.js requestMode workaround ───────────────────────────────────
+    // ── xterm.js requestMode workaround ─────────────────────────────────
     // xterm.js 6.0 / 6.1-beta has a bug where its built-in DECRQM ("DEC
     // Request Mode") handler throws `ReferenceError: r is not defined`,
     // corrupting the parser state. vim sends DECRQM at startup to probe
@@ -240,12 +241,14 @@ export function TerminalView({ sessionId, isActive }: Props) {
     })
     const resizeSub = term.onResize(({ cols, rows }) => {
       void window.api.ssh.resize({ sessionId, cols, rows })
+      useSessionsStore.getState().setTerminalDimensions(sessionId, cols, rows)
     })
     void window.api.ssh.resize({
       sessionId,
       cols: term.cols,
       rows: term.rows,
     })
+    useSessionsStore.getState().setTerminalDimensions(sessionId, term.cols, term.rows)
 
     const unsubData = window.api.ssh.onData((evt) => {
       if (evt.sessionId === sessionId) term.write(evt.data)
