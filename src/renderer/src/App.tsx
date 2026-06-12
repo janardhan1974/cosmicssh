@@ -8,6 +8,7 @@ import { PasswordPrompt } from './components/PasswordPrompt'
 import { Settings } from './components/Settings'
 import { Sidebar } from './components/Sidebar'
 import { SftpView } from './components/SftpView'
+import { StatusBar } from './components/StatusBar'
 import { TabBar } from './components/TabBar'
 import { TerminalView } from './components/TerminalView'
 import { TileDivider } from './components/TileDivider'
@@ -45,7 +46,7 @@ function readSidebarVisible(): boolean {
 }
 
 type EditorState =
-  | { mode: 'create' }
+  | { mode: 'create'; initialGroup?: string }
   | { mode: 'edit'; profile: SessionProfile }
   | null
 
@@ -366,7 +367,7 @@ export function App() {
     (p: SessionProfile) => setEditor({ mode: 'edit', profile: p }),
     [],
   )
-  const handleNewProfile = useCallback(() => setEditor({ mode: 'create' }), [])
+  const handleNewProfile = useCallback((group?: string) => setEditor({ mode: 'create', initialGroup: group }), [])
   const handleOpenSettings = useCallback(() => setShowSettings(true), [])
 
   const handlePasswordSubmit = async (password: string, savePassword: boolean) => {
@@ -493,7 +494,7 @@ export function App() {
     [handleConnectFromSidebar, surface],
   )
 
-  // ─── Menu bar wiring ──────────────────────────────────────────────────
+  // ─── Menu bar wiring ──────────────────────────────────────────────────────
   // Renderer-local handlers wrap the existing state setters; main-side ones
   // call the IPC dispatcher in main/index.ts. Stable refs via useCallback so
   // the menus prop into <MenuBar> doesn't re-create every render.
@@ -720,12 +721,14 @@ export function App() {
           })}
         </div>
         {tabLayout === 'mdi' && <MinimizedStrip />}
+        <StatusBar />
       </main>
 
       {editor && (
         <ProfileEditor
           mode={editor.mode}
           initial={editor.mode === 'edit' ? editor.profile : undefined}
+          initialGroup={editor.mode === 'create' ? editor.initialGroup : undefined}
           onCancel={() => setEditor(null)}
           onSave={() => setEditor(null)}
           onSaveAndConnect={handleSaveAndConnect}
