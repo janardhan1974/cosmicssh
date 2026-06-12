@@ -20,7 +20,7 @@ type RenameTarget =
 type Props = {
   onConnect: (profile: SessionProfile) => void
   onEdit: (profile: SessionProfile) => void
-  onNewProfile: () => void
+  onNewProfile: (group?: string) => void
   onOpenSettings: () => void
   // Hide the sidebar (X button in the header). Symmetric with View → Sidebar
   // (Ctrl+B) — both flip the same App-level `sidebarVisible` state.
@@ -107,7 +107,7 @@ function SidebarImpl({ onConnect, onEdit, onNewProfile, onOpenSettings, onHide }
       return [
         {
           label: 'New session in this folder',
-          onClick: () => onNewProfile(),
+          onClick: () => onNewProfile(state.group),
         },
         {
           label: 'Rename folder (F2)',
@@ -233,7 +233,7 @@ function SidebarImpl({ onConnect, onEdit, onNewProfile, onOpenSettings, onHide }
           <button
             type="button"
             className="icon-btn"
-            onClick={onNewProfile}
+            onClick={() => onNewProfile()}
             title="New profile"
           >
             + New
