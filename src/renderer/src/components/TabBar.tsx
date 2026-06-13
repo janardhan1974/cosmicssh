@@ -162,6 +162,17 @@ export function TabBar({ onCloseTab, onReconnect, onClone }: Props) {
             onDragEnd={() => {
               setDragOver(null)
               dragSrcIdx.current = null
+              // After HTML5 drag ends, the browser leaves focus on the tab
+              // div (role="tab"). The ARIA spec maps spacebar → "activate tab"
+              // on any focused role="tab" element, so the next spacebar the
+              // user types is consumed by the tab widget and never reaches
+              // xterm. onDocFocusIn in TerminalView doesn't rescue this
+              // because focusin doesn't re-fire when focus was already on the
+              // div before dragstart. Explicitly hand focus back to xterm.
+              queueMicrotask(() => {
+                const ta = document.querySelector<HTMLElement>('.xterm-helper-textarea')
+                ta?.focus()
+              })
             }}
             onClick={() => setActive(tab.sessionId)}
             onContextMenu={(e) => {
