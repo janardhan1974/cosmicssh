@@ -357,10 +357,32 @@ export function TerminalView({ sessionId, isActive }: Props) {
       queueMicrotask(() => termRef.current?.focus())
     }
     document.addEventListener('focusin', onDocFocusIn)
+    // focusin (above) only fires when focus ARRIVES at an element, so it
+    // can't see focus reverting to document.body — which is exactly what
+    // happens when a transient element that HELD focus is removed: a modal
+    // (Settings), a context menu, or a closed tab's button. No focusin fires
+    // for body, so the terminal stays unfocused and the browser eats the next
+    // Space as its default action ("spacebar dead") until an ALT+TAB
+    // round-trip triggers the window-focus handler. This closes that gap so
+    // in-window recovery is as reliable as the ALT+TAB one.
+    const onDocFocusOut = (e: FocusEvent) => {
+      // Focus landed on a real element → onDocFocusIn handles it (or correctly
+      // leaves it alone for inputs/modals). Only relatedTarget === null (focus
+      // reverting to body) is the gap we need to cover here.
+      if (e.relatedTarget !== null) return
+      // Window is blurring (ALT+TAB away) rather than an in-window revert —
+      // onWindowFocus handles the return, don't fight it.
+      if (!document.hasFocus()) return
+      // A different modal/menu is open and legitimately owns focus.
+      if (document.querySelector('.modal, .context-menu')) return
+      queueMicrotask(() => termRef.current?.focus())
+    }
+    document.addEventListener('focusout', onDocFocusOut)
     return () => {
       cancelAnimationFrame(id)
       window.removeEventListener('focus', onWindowFocus)
       document.removeEventListener('focusin', onDocFocusIn)
+      document.removeEventListener('focusout', onDocFocusOut)
     }
   }, [isActive])
 
